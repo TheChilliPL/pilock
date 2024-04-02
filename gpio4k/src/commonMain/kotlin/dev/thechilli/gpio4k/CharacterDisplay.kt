@@ -1,15 +1,22 @@
 package dev.thechilli.gpio4k
 
 interface CharacterDisplay {
-    /** Writes a string to the display. */
-    fun write(str: String) {
-        str.forEach { writeChar(it) }
+    /** Prints a string to the display. */
+    fun print(str: String) {
+        str
+            .replace("\r\n", "\n")
+            .forEach { when (it) {
+                '\r', '\n' -> breakLine()
+                else -> writeChar(it)
+            }}
     }
 
     /**
      * Writes a character to the display.
      */
     fun writeChar(char: Char)
+
+    fun breakLine()
 
     /**
      * Clears the display and sets the cursor to the home position.

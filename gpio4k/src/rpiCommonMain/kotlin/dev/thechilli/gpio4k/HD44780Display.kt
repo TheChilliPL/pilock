@@ -1,10 +1,21 @@
 package dev.thechilli.gpio4k
 
 interface HD44780Display : CharacterDisplay {
+    val readingAvailable: Boolean
+    val currentAddress: UByte
+    val currentlyInCgRam: Boolean
+
+    val characterRom: CharArray
+
     override fun writeChar(char: Char) {
         // TODO Replace with a character table
         // TODO Implement \n
         writeData(true, char.code.toUByte())
+    }
+
+    override fun breakLine() {
+        // TODO Read position or keep track of it!
+        setDdRamAddress(0x40u)
     }
 
     fun readChar(): Char {
