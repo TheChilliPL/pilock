@@ -5,6 +5,11 @@ plugins {
 }
 
 kotlin {
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    compilerOptions {
+        optIn.add("kotlin.ExperimentalStdlibApi")
+    }
+
     val targetAttr = Attribute.of("target", String::class.java)
 
     linuxArm64("rpiNative") {

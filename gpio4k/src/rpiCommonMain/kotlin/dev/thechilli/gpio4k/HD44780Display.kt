@@ -11,7 +11,7 @@ interface HD44780Display : CharacterDisplay {
         return getLineOffsets
             .filter { it <= address }
             .withIndex()
-            .minBy { address - it.value }.index ?: 0
+            .minBy { address - it.value }.index
     }
 
     val characterRom: HD44780CharacterSet
@@ -65,6 +65,14 @@ interface HD44780Display : CharacterDisplay {
         writeData(false, data.toUByte())
     }
 
+    override fun shiftCursor(direction: CursorDirection) {
+        cursorDisplayShift(false, direction == CursorDirection.Right)
+    }
+
+    override fun shiftDisplay(direction: CursorDirection) {
+        cursorDisplayShift(true, direction == CursorDirection.Right)
+    }
+
     fun functionSet(
         dataLength8Bit: Boolean = true,
         twoLines: Boolean = true,
@@ -85,8 +93,20 @@ interface HD44780Display : CharacterDisplay {
         writeData(false, data.toUByte())
     }
 
+    override fun setCursor(row: Int, column: Int) {
+        setDdRamAddress((getLineOffsets[row] + column.toUByte()).toUByte())
+    }
+
     fun readBusyAndAddress(): UByte {
         return readData(false)
+    }
+
+    override fun readBusyFlag(): Boolean {
+        return readBusyAndAddress().bitFromLeft(0)
+    }
+
+    override fun readAddress(): UByte {
+        return readBusyAndAddress() and 0b0111_1111u
     }
 
     fun writeData(rs: Boolean, data: UByte)

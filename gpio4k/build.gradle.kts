@@ -1,8 +1,15 @@
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+
 plugins {
     kotlin("multiplatform") version "1.9.23"
 }
 
 kotlin {
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    compilerOptions {
+        optIn.add("kotlin.ExperimentalStdlibApi")
+    }
+
     val targetAttr = Attribute.of("target", String::class.java)
 
     linuxArm64("rpiNative") {
@@ -42,6 +49,13 @@ kotlin {
 
         val desktopJvmMain by getting {
             dependsOn(commonMain)
+        }
+
+        val desktopJvmTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation(kotlin("test-junit"))
+            }
         }
     }
 }

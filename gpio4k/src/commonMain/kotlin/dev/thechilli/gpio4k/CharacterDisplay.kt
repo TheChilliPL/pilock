@@ -74,5 +74,5 @@ interface CharacterDisplay {
     /**
      * Reads the current address.
      */
-    fun readAddress(): Int
+    fun readAddress(): UByte
 }
