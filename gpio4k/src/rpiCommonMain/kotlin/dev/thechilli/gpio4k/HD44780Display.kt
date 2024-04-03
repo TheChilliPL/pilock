@@ -5,20 +5,18 @@ interface HD44780Display : CharacterDisplay {
     val currentAddress: UByte
     val currentlyInCgRam: Boolean
 
-    val characterRom: CharArray
+    val characterRom: CharacterSet
 
     override fun writeChar(char: Char) {
-        // TODO Replace with a character table
-        writeData(true, char.code.toUByte())
+        writeData(true, characterRom.codeOf(char))
     }
 
     override fun breakLine() {
-        // TODO Read position or keep track of it!
         setDdRamAddress(0x40u)
     }
 
     fun readChar(): Char {
-        return Char(readData(true).toInt())
+        return characterRom[readData(true).toInt()]
     }
 
     override fun clearDisplay() {
@@ -87,7 +85,7 @@ interface HD44780Display : CharacterDisplay {
 
         // Character ROM A00
         // https://www.sparkfun.com/datasheets/LCD/HD44780.pdf#page=17
-        val ROM_A00 = charArrayOf(
+        val ROM_A00 = CharacterSet.of(
             nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul,
             nul, '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?',
@@ -107,7 +105,7 @@ interface HD44780Display : CharacterDisplay {
 
         // Character ROM A02
         // https://www.sparkfun.com/datasheets/LCD/HD44780.pdf#page=18
-        val ROM_A02 = charArrayOf(
+        val ROM_A02 = CharacterSet.of(
             nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul,
             '⯈', '⯇', '“', '”', '⏫', '⏬', '•', '↵', '↑', '↓', '→', '←', '≤', '≥', '⯅', '⯆',
             ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
