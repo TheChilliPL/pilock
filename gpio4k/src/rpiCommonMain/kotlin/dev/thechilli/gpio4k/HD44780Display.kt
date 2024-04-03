@@ -1,22 +1,34 @@
 package dev.thechilli.gpio4k
 
 interface HD44780Display : CharacterDisplay {
+    val getLineOffsets: List<UByte>
+
     val readingAvailable: Boolean
     val currentAddress: UByte
     val currentlyInCgRam: Boolean
 
-    val characterRom: CharacterSet
+    fun lineOfAddress(address: UByte): Int {
+        return getLineOffsets
+            .filter { it <= address }
+            .withIndex()
+            .minBy { address - it.value }.index ?: 0
+    }
+
+    val characterRom: HD44780CharacterSet
 
     override fun writeChar(char: Char) {
         writeData(true, characterRom.codeOf(char))
     }
 
     override fun breakLine() {
-        setDdRamAddress(0x40u)
+        // TODO Make sure this works with screen scrolling
+        val currentLine = lineOfAddress(currentAddress)
+        val nextLine = (currentLine + 1).mod(getLineOffsets.size)
+        setDdRamAddress(getLineOffsets[nextLine])
     }
 
     fun readChar(): Char {
-        return characterRom[readData(true).toInt()]
+        return characterRom[readData(true)]
     }
 
     override fun clearDisplay() {
@@ -81,32 +93,32 @@ interface HD44780Display : CharacterDisplay {
     fun readData(rs: Boolean): UByte
 
     companion object {
-        private const val nul = '\u0000'
+        private const val NUL = '\u0000'
 
         // Character ROM A00
         // https://www.sparkfun.com/datasheets/LCD/HD44780.pdf#page=17
-        val ROM_A00 = CharacterSet.of(
-            nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul,
-            nul, '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
+        val ROM_A00 = HD44780CharacterSet.of(
+            NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL,
+            NUL, '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?',
             '@', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',
             'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '¥', ']', '^', '_',
             '`', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
             'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '{', '|', '}', '←', '→',
-            nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul,
+            NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL,
             '\u3000', '。', '「', '」', '、', '・', 'ヲ', 'ァ', 'ィ', 'ゥ', 'ェ', 'ォ', 'ャ', 'ュ', 'ョ', 'ッ',
             'ー', 'ア', 'イ', 'ウ', 'エ', 'オ', 'カ', 'キ', 'ク', 'ケ', 'コ', 'サ', 'シ', 'ス', 'セ', 'ソ',
             'タ', 'チ', 'ツ', 'テ', 'ト', 'ナ', 'ニ', 'ヌ', 'ネ', 'ノ', 'ハ', 'ヒ', 'フ', 'ヘ', 'ホ', 'マ',
             'ミ', 'ム', 'メ', 'モ', 'ヤ', 'ユ', 'ヨ', 'ラ', 'リ', 'ル', 'レ', 'ロ', 'ワ', 'ン', '゛', '゜',
             // TODO Fill missing characters
-            'α', 'ä', 'β', 'ε', 'μ', 'σ', 'ρ', '√', nul, nul, nul, nul, nul, nul, 'ñ', 'ö',
-            nul, nul, 'θ', '∞', 'Ω', 'ü', '∑', 'π', nul, nul, '千', '万', '円', '÷', nul, '█',
+            'α', 'ä', 'β', 'ε', 'μ', 'σ', 'ρ', '√', NUL, NUL, NUL, NUL, NUL, NUL, 'ñ', 'ö',
+            NUL, NUL, 'θ', '∞', 'Ω', 'ü', '∑', 'π', NUL, NUL, '千', '万', '円', '÷', NUL, '█',
         )
 
         // Character ROM A02
         // https://www.sparkfun.com/datasheets/LCD/HD44780.pdf#page=18
-        val ROM_A02 = CharacterSet.of(
-            nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul, nul,
+        val ROM_A02 = HD44780CharacterSet.of(
+            NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL, NUL,
             '⯈', '⯇', '“', '”', '⏫', '⏬', '•', '↵', '↑', '↓', '→', '←', '≤', '≥', '⯅', '⯆',
             ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/',
             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?',

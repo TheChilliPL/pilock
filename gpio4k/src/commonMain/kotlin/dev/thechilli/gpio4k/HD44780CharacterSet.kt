@@ -3,12 +3,12 @@ package dev.thechilli.gpio4k
 import kotlin.jvm.JvmInline
 
 @JvmInline
-value class CharacterSet private constructor(
+value class HD44780CharacterSet private constructor(
     private val characters: CharArray
 ) {
     val size get() = characters.size
 
-    operator fun get(index: Int): Char = characters[index]
+    operator fun get(index: UByte): Char = characters[index.toInt()]
 
     /**
      * Returns the index of the character in the character set.
@@ -21,6 +21,6 @@ value class CharacterSet private constructor(
     operator fun contains(char: Char): Boolean = char in characters
 
     companion object {
-        fun of(vararg characters: Char): CharacterSet = CharacterSet(characters)
+        fun of(vararg characters: Char): HD44780CharacterSet = HD44780CharacterSet(characters)
     }
 }
