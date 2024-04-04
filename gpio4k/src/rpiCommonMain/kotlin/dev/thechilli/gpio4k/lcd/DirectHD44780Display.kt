@@ -1,7 +1,8 @@
-package dev.thechilli.gpio4k
+package dev.thechilli.gpio4k.lcd
 
-import dev.thechilli.gpio4k.DigitalState.HIGH
-import dev.thechilli.gpio4k.DigitalState.LOW
+import dev.thechilli.gpio4k.utils.bitFromLeft
+import dev.thechilli.gpio4k.gpio.GpioPin
+import dev.thechilli.gpio4k.gpio.GpioIOMode.OUTPUT
 
 /**
  * @param rsPin Register select pin.
@@ -13,22 +14,24 @@ import dev.thechilli.gpio4k.DigitalState.LOW
  * @param characterRom Character set of the display.
  */
 class DirectHD44780Display(
-        private val rsPin: DigitalOutput,
-        private val rwPin: DigitalOutput?,
-        private val enablePin: DigitalOutput,
-        private val dataPins: List<DigitalOutput>,
-        override val rows: Int,
-        override val columns: Int,
-        override val characterRom: HD44780CharacterSet = HD44780Display.ROM_A00,
+    private val rsPin: GpioPin,
+    private val rwPin: GpioPin?,
+    private val enablePin: GpioPin,
+    private val dataPins: List<GpioPin>,
+    override val rows: Int,
+    override val columns: Int,
+    override val characterRom: HD44780CharacterSet = HD44780Display.ROM_A00,
 ) : HD44780Display {
     init {
         // Constructor parameter validation
         require(dataPins.size == 4 || dataPins.size == 8) { "Data pins must be 4 or 8" }
         require(rows in setOf(1, 2, 4)) { "Unsupported number of rows: $rows" }
 
-        if(rwPin != null) {
-            require(dataPins.all { it is DigitalInput }) { "For reading to be available, all data pins must be readable. If you don't want to read, set rwPin to null." }
-        }
+        // Initialize pins
+        rsPin.reset(OUTPUT)
+        rwPin?.reset(OUTPUT)
+        enablePin.reset(OUTPUT)
+        dataPins.forEach { it.reset(OUTPUT) }
     }
 
     val is4BitMode: Boolean = dataPins.size == 4
@@ -94,10 +97,10 @@ class DirectHD44780Display(
     override fun writeData(rs: Boolean, data: UByte) {
         if(is4BitMode) TODO("4-bit mode is not implemented yet!")
 
-        rwPin?.write(LOW)
-        rsPin.write(if(rs) HIGH else LOW)
+        rwPin?.write(false)
+        rsPin.write(rs)
         for((i, pin) in dataPins.withIndex()) {
-            pin.write(if(data.bitFromLeft(i)) HIGH else LOW)
+            pin.write(data.bitFromLeft(i))
         }
     }
 

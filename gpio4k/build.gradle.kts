@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("multiplatform") version "1.9.23"
@@ -7,7 +8,11 @@ plugins {
 kotlin {
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     compilerOptions {
-        optIn.add("kotlin.ExperimentalStdlibApi")
+        optIn.apply{
+            // Experimental Kotlin APIs
+            add("kotlin.ExperimentalStdlibApi")
+            add("kotlin.ExperimentalUnsignedTypes")
+        }
     }
 
     val targetAttr = Attribute.of("target", String::class.java)
@@ -21,6 +26,11 @@ kotlin {
     }
 
     jvm("rpiJvm") {
+        compilations.getting {
+            compilerOptions.configure {
+                jvmTarget.set(JvmTarget.JVM_17)
+            }
+        }
         attributes.attribute(targetAttr, "rpi")
     }
 

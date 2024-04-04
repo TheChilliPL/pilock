@@ -1,4 +1,6 @@
-package dev.thechilli.gpio4k
+package dev.thechilli.gpio4k.lcd
+
+import dev.thechilli.gpio4k.utils.bitFromLeft
 
 interface HD44780Display : CharacterDisplay {
     val getLineOffsets: List<UByte>

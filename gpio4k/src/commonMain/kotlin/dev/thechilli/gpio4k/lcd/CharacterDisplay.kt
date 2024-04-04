@@ -1,4 +1,4 @@
-package dev.thechilli.gpio4k
+package dev.thechilli.gpio4k.lcd
 
 interface CharacterDisplay {
     /** Prints a string to the display. */

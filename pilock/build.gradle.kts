@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("multiplatform") version "1.9.23"
@@ -20,6 +21,17 @@ kotlin {
     }
 
     jvm("rpiJvm") {
+        withJava()
+        compilations.getting {
+            compilerOptions.configure {
+                jvmTarget.set(JvmTarget.JVM_17)
+
+            }
+        }
+        @OptIn(ExperimentalKotlinGradlePluginApi::class)
+        mainRun {
+            this.mainClass = "dev.thechilli.pilock.MainKt"
+        }
         attributes.attribute(targetAttr, "rpi")
     }
 
@@ -34,7 +46,7 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                // ...
+                implementation(project(":gpio4k"))
             }
         }
 

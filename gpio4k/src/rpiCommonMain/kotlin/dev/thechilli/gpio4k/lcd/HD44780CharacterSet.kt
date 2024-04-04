@@ -1,4 +1,4 @@
-package dev.thechilli.gpio4k
+package dev.thechilli.gpio4k.lcd
 
 import kotlin.jvm.JvmInline
 
