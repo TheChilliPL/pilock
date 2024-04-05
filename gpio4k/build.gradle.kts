@@ -13,6 +13,7 @@ kotlin {
             add("kotlin.ExperimentalStdlibApi")
             add("kotlin.ExperimentalUnsignedTypes")
             add("kotlinx.cinterop.ExperimentalForeignApi")
+            add("kotlin.experimental.ExperimentalNativeApi")
         }
     }
 

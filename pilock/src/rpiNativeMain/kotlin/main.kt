@@ -1,15 +1,16 @@
 import dev.thechilli.gpio4k.gpio.GpiodPin
 import dev.thechilli.gpio4k.lcd.DirectHD44780Display
+import dev.thechilli.gpio4k.utils.closingScope
 
-fun main() {
+fun main() = closingScope {
     // LCD pins
-    val rsPin = GpiodPin(0, 0)
-    val enPin = GpiodPin(0, 5)
+    val rsPin = GpiodPin(0, 0).autoClose()
+    val enPin = GpiodPin(0, 5).autoClose()
 
     // Consecutive pins for data
     val dataPins = listOf(17, 27, 22, 24, 10, 9, 11, 7).map {
         GpiodPin(0, it)
-    }.asReversed()
+    }.asReversed().autoCloseAll()
 
     val lcd = DirectHD44780Display(
         rsPin,

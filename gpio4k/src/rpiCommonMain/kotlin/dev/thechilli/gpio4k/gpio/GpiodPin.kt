@@ -1,5 +1,7 @@
 package dev.thechilli.gpio4k.gpio
 
+import dev.thechilli.gpio4k.utils.isDebug
+
 /**
  * A GPIO pin that is controlled by the gpiod command line interface.
  *
@@ -111,6 +113,16 @@ class GpiodPin(val gpioChipId: Int, val pinId: Int) : GpioPin {
             // Kill the last set command if it's still running
             kill(lastSetPid)
             lastSetPid = 0
+        }
+    }
+
+    protected fun finalize() {
+        if(isDebug) {
+            if(lastSetPid != 0L) {
+                // TODO Log this to error stream instead of stdout
+                println("[DEBUG] GpiodPin $pinId has not been closed properly before destruction. Closing now.")
+                kill(lastSetPid)
+            }
         }
     }
 }

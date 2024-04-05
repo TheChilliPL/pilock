@@ -1,5 +1,6 @@
 package dev.thechilli.gpio4k.lcd
 
+import dev.thechilli.gpio4k.gpio.GpioIOMode
 import dev.thechilli.gpio4k.gpio.GpioIOMode.OUTPUT
 import dev.thechilli.gpio4k.gpio.GpioPin
 import dev.thechilli.gpio4k.utils.bitFromLeft
@@ -14,12 +15,12 @@ import dev.thechilli.gpio4k.utils.sleep
  * @param columns Number of columns on the display.
  * @param characterRom Character set of the display.
  */
-class DirectHD44780Display(
-    private val rsPin: GpioPin,
-    private val rwPin: GpioPin?,
-    private val enablePin: GpioPin,
-    private val dataPins: List<GpioPin>,
-    override val rows: Int,
+open class DirectHD44780Display(
+    protected val rsPin: GpioPin,
+    protected val rwPin: GpioPin?,
+    protected val enablePin: GpioPin,
+    protected val dataPins: List<GpioPin>,
+    rows: Int,
     override val columns: Int,
     override val characterRom: HD44780CharacterSet = HD44780Display.ROM_A00,
 ) : HD44780Display {
@@ -27,13 +28,13 @@ class DirectHD44780Display(
         // Constructor parameter validation
         require(dataPins.size == 4 || dataPins.size == 8) { "Data pins must be 4 or 8" }
         require(rows in setOf(1, 2, 4)) { "Unsupported number of rows: $rows" }
-
-        // Initialize pins
-        rsPin.reset(OUTPUT)
-        rwPin?.reset(OUTPUT)
-        enablePin.reset(OUTPUT)
-        dataPins.forEach { it.reset(OUTPUT) }
     }
+
+    override var rows: Int = rows
+        set(value) {
+            require(value in setOf(1, 2, 4)) { "Unsupported number of rows: $value" }
+            field = value
+        }
 
     val is4BitMode: Boolean = dataPins.size == 4
 
@@ -95,8 +96,15 @@ class DirectHD44780Display(
         super.displayControl(displayOn, cursorOn, cursorBlink)
     }
 
+    private fun setDataPinsMode(mode: GpioIOMode) {
+        dataPins.forEach { it.setMode(mode) }
+    }
+
     override fun writeData(rs: Boolean, data: UByte) {
         if(is4BitMode) TODO("4-bit mode is not implemented yet!")
+
+        // Make sure the pins are in output mode
+        setDataPinsMode(OUTPUT)
 
         rwPin?.write(false)
         rsPin.write(rs)
@@ -106,12 +114,33 @@ class DirectHD44780Display(
 
         sleep(1)
         enablePin.write(true)
-        sleep(2)
+        sleep(1)
         enablePin.write(false)
         sleep(2)
     }
 
     override fun readData(rs: Boolean): UByte {
-        TODO("Not yet implemented")
+//        TODO("Not yet implemented")
+
+        if(is4BitMode) TODO("4-bit mode is not implemented yet!")
+
+        // Make sure the pins are in input mode
+        setDataPinsMode(GpioIOMode.INPUT)
+
+        rwPin?.write(true)
+        rsPin.write(rs)
+
+        sleep(1)
+        enablePin.write(true)
+        sleep(1)
+        var output: UByte = 0u
+        for((i, pin) in dataPins.withIndex()) {
+            if(pin.read())
+                output = output or (1u shl i).toUByte()
+        }
+        enablePin.write(false)
+        sleep(2)
+
+        return output
     }
 }
