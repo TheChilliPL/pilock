@@ -1,8 +1,9 @@
 package dev.thechilli.gpio4k.lcd
 
-import dev.thechilli.gpio4k.utils.bitFromLeft
-import dev.thechilli.gpio4k.gpio.GpioPin
 import dev.thechilli.gpio4k.gpio.GpioIOMode.OUTPUT
+import dev.thechilli.gpio4k.gpio.GpioPin
+import dev.thechilli.gpio4k.utils.bitFromLeft
+import dev.thechilli.gpio4k.utils.sleep
 
 /**
  * @param rsPin Register select pin.
@@ -102,6 +103,12 @@ class DirectHD44780Display(
         for((i, pin) in dataPins.withIndex()) {
             pin.write(data.bitFromLeft(i))
         }
+
+        sleep(1)
+        enablePin.write(true)
+        sleep(2)
+        enablePin.write(false)
+        sleep(2)
     }
 
     override fun readData(rs: Boolean): UByte {

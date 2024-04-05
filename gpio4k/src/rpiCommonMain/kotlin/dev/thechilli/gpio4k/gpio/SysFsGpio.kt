@@ -14,19 +14,27 @@ class SysFsGpioPin(val pinId: Int) : GpioPin {
     init {
         // Reserve the pin
         val exportPath = "/sys/class/gpio/export"
-        writeSysFs(exportPath, pinId.toString())
+        try {
+            writeSysFs(exportPath, pinId.toString())
+        } catch (e: Exception) {
+            throw GpioException("Failed to reserve pin $pinId", e)
+        }
 
         reset()
     }
 
     override fun read(): Boolean {
         val valuePath = "$pinPath/value"
+        if(mode != GpioIOMode.INPUT)
+            throw GpioException("Pin $pinId is not readable")
         val value = readSysFsString(valuePath)
         return value == "1"
     }
 
     override fun write(value: Boolean) {
         val valuePath = "$pinPath/value"
+        if(mode != GpioIOMode.OUTPUT)
+            throw GpioException("Pin $pinId is not writable")
         writeSysFs(valuePath, if (value) "1" else "0")
     }
 

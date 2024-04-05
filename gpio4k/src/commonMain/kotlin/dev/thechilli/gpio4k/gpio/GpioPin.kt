@@ -1,7 +1,21 @@
 package dev.thechilli.gpio4k.gpio
 
+/**
+ * Generic GPIO pin interface.
+ */
 interface GpioPin : AutoCloseable {
+    /**
+     * Reads the current value of the pin.
+     *
+     * @throws GpioException if the pin is not readable
+     */
     fun read(): Boolean
+
+    /**
+     * Writes a value to the pin.
+     *
+     * @throws GpioException if the pin is not writable
+     */
     fun write(value: Boolean)
 
     val mode: GpioIOMode
