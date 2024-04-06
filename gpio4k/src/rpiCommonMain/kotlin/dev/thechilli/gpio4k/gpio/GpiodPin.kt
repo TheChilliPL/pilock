@@ -12,6 +12,7 @@ class GpiodPin(val gpioChipId: Int, val pinId: Int) : GpioPin {
         if(mode != GpioIOMode.INPUT)
             throw GpioException("Pin $pinId is not readable")
 
+        // gpioget [-l] -B <bias> <chip> <pin>
         val args = mutableListOf<String>()
         // Set pin to active low if necessary
         if(activeLow) args.add("-l")
@@ -33,8 +34,12 @@ class GpiodPin(val gpioChipId: Int, val pinId: Int) : GpioPin {
     }
 
     private var lastSetPid: Long = 0
+    private var forceSet = true
+    private var lastState = false
 
     override fun write(value: Boolean) {
+        if(!forceSet && lastState == value) return // Skip if the value is the same
+
         if(mode != GpioIOMode.OUTPUT)
             throw GpioException("Pin $pinId is not writable")
 
@@ -42,6 +47,7 @@ class GpiodPin(val gpioChipId: Int, val pinId: Int) : GpioPin {
         if(lastSetPid != 0L)
             kill(lastSetPid)
 
+        // gpioset [-l] -B <bias> -D <drive> -m signal <chip> <pin>=<value>
         val args = mutableListOf<String>()
         // Set pin to active low if necessary
         if(activeLow) args.add("-l")
@@ -59,7 +65,7 @@ class GpiodPin(val gpioChipId: Int, val pinId: Int) : GpioPin {
             GpioDriveMode.OPEN_DRAIN -> "open-drain"
             GpioDriveMode.OPEN_SOURCE -> "open-source"
         })
-        // Wait for SIGTERM
+        // Keep pin state until SIGTERM
         args.add("-m")
         args.add("signal")
         // Pass chip and pin id
@@ -67,6 +73,9 @@ class GpiodPin(val gpioChipId: Int, val pinId: Int) : GpioPin {
         args.add(pinId.toString() + "=" + if(value) "1" else "0")
         // Write the pin
         lastSetPid = spawn("gpioset", *args.toTypedArray())
+
+        lastState = value
+        forceSet = false
     }
 
     override var mode = GpioIOMode.INPUT
@@ -81,6 +90,7 @@ class GpiodPin(val gpioChipId: Int, val pinId: Int) : GpioPin {
             }
         }
         this.mode = mode
+        forceSet = true
         return this
     }
 
@@ -89,6 +99,7 @@ class GpiodPin(val gpioChipId: Int, val pinId: Int) : GpioPin {
 
     override fun setActiveLow(activeLow: Boolean): GpioPin {
         this.activeLow = activeLow
+        forceSet = true
         return this
     }
 
@@ -97,6 +108,7 @@ class GpiodPin(val gpioChipId: Int, val pinId: Int) : GpioPin {
 
     override fun setBias(bias: GpioLineBias): GpioPin {
         this.bias = bias
+        forceSet = true
         return this
     }
 
@@ -105,6 +117,7 @@ class GpiodPin(val gpioChipId: Int, val pinId: Int) : GpioPin {
 
     override fun setDrive(drive: GpioDriveMode): GpioPin {
         this.drive = drive
+        forceSet = true
         return this
     }
 
