@@ -3,10 +3,28 @@ package dev.thechilli.gpio4k.gpio
 import kotlinx.cinterop.*
 import platform.posix.*
 
+private var setupForksDone = false
+
+/**
+ * Sets up the signal handler for forked processes.
+ * Prevents zombie processes.
+ * This function is idempotent.
+ */
+private inline fun setupForks() {
+    if(setupForksDone) return
+
+    // Ignore SIGCHLD to avoid zombie processes
+    signal(SIGCHLD, SIG_IGN)
+
+    setupForksDone = true
+}
+
 /**
  * Executes a command, wait for it to end, and returns the exit code and output.
  */
 actual fun exec(command: String, vararg args: String): Pair<Int, String> = memScoped {
+    setupForks()
+
     // Allocate array for file descriptors of the pipe
     val fds = allocArray<IntVar>(2)
     // Create the pipe and set fds to the file descriptors
@@ -17,7 +35,7 @@ actual fun exec(command: String, vararg args: String): Pair<Int, String> = memSc
     // Create a child process
     val pid = fork()
     if (pid < 0) {
-        throw GpioException("Failed to fork")
+        throw GpioException("failed to fork. errno: $errno")
     } else if(pid == 0) {
         // Forked process
         // We don't need the read end of the pipe in the child process, so we close it
@@ -58,10 +76,12 @@ actual fun exec(command: String, vararg args: String): Pair<Int, String> = memSc
  * Executes a command in the background and returns the process id.
  */
 actual fun spawn(command: String, vararg args: String): Long = memScoped {
+    setupForks()
+
     // Create a child process
     val pid = fork()
     if (pid < 0) {
-        throw GpioException("Failed to fork")
+        throw GpioException("failed to fork. errno: $errno")
     } else if(pid == 0) {
         // Forked process
         // Execute the command

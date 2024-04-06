@@ -5,6 +5,7 @@ import dev.thechilli.gpio4k.gpio.GpioIOMode.OUTPUT
 import dev.thechilli.gpio4k.gpio.GpioPin
 import dev.thechilli.gpio4k.utils.bitFromLeft
 import dev.thechilli.gpio4k.utils.sleep
+import dev.thechilli.gpio4k.utils.sleepUs
 
 /**
  * @param rsPin Register select pin.
@@ -28,6 +29,10 @@ open class DirectHD44780Display(
         // Constructor parameter validation
         require(dataPins.size == 4 || dataPins.size == 8) { "Data pins must be 4 or 8" }
         require(rows in setOf(1, 2, 4)) { "Unsupported number of rows: $rows" }
+
+        rsPin.setMode(OUTPUT)
+        rwPin?.setMode(OUTPUT)
+        enablePin.setMode(OUTPUT)
     }
 
     override var rows: Int = rows
@@ -112,11 +117,11 @@ open class DirectHD44780Display(
             pin.write(data.bitFromLeft(i))
         }
 
-        sleep(1)
+        sleepUs(1)
         enablePin.write(true)
-        sleep(1)
+        sleepUs(1)
         enablePin.write(false)
-        sleep(2)
+        sleepUs(1500)
     }
 
     override fun readData(rs: Boolean): UByte {

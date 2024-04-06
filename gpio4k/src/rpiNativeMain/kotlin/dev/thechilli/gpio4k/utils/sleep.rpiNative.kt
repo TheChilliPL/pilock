@@ -5,3 +5,7 @@ import platform.posix.usleep
 actual fun sleep(millis: Int) {
     usleep((millis * 1000).toUInt())
 }
+
+actual fun sleepUs(micros: Int) {
+    usleep(micros.toUInt())
+}

@@ -10,7 +10,7 @@ fun main() = closingScope {
     // Consecutive pins for data
     val dataPins = listOf(17, 27, 22, 24, 10, 9, 11, 7).map {
         GpiodPin(0, it)
-    }.asReversed().autoCloseAll()
+    }.autoCloseAll()
 
     val lcd = DirectHD44780Display(
         rsPin,
@@ -20,6 +20,8 @@ fun main() = closingScope {
         4,
         20
     )
+
+    println("Initializing display…")
 
     // Init
     val initBytes = byteArrayOf(
@@ -40,7 +42,12 @@ fun main() = closingScope {
         lcd.writeData(false, byte.toUByte())
     }
 
+//    lcd.functionSet(dataLength8Bit = true, twoLines = true, font5x10 = false)
+//    lcd.displayControl(true, true, false)
+
+    println("Trying to display…")
+
     // Clear display
     lcd.clearDisplay()
-    lcd.print("Hello, World!")
+    lcd.print("Hello world")
 }
