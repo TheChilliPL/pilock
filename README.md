@@ -21,11 +21,12 @@ Each project is a multiplatform Kotlin project with the following source sets:
 ### First to be implemented
 
 - [ ] GPIO pin interaction
-  - [ ] Basic GPIO pin API
+  - [x] Basic GPIO pin API
   - [ ] Debouncing
   - [ ] 4×4 keypad
   - [ ] Pulse-width modulation
-- [ ] HD44780 LCD interaction
+- [x] HD44780 LCD interaction
+- [ ] DOGM204x-A LCD interaction
 
 ### Next to be implemented
 
