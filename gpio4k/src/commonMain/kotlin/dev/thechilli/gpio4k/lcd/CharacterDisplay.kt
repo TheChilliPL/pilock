@@ -1,6 +1,9 @@
 package dev.thechilli.gpio4k.lcd
 
 interface CharacterDisplay {
+    /** Initializes the display. */
+    fun initialize()
+
     /** Prints a string to the display. */
     fun print(str: String) {
         str
@@ -65,6 +68,8 @@ interface CharacterDisplay {
 
     val rows: Int
     val columns: Int
+
+    fun setSize(rows: Int, columns: Int)
 
     /**
      * Checks whether the display is busy.

@@ -75,6 +75,8 @@ interface HD44780Display : CharacterDisplay {
         cursorDisplayShift(true, direction == CursorDirection.Right)
     }
 
+    var font5x10: Boolean
+
     fun functionSet(
         dataLength8Bit: Boolean = true,
         twoLines: Boolean = true,

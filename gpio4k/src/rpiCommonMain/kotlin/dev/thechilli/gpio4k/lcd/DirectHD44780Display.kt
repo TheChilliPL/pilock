@@ -22,7 +22,7 @@ open class DirectHD44780Display(
     protected val enablePin: GpioPin,
     protected val dataPins: List<GpioPin>,
     rows: Int,
-    override val columns: Int,
+    columns: Int,
     override val characterRom: HD44780CharacterSet = HD44780Display.ROM_A00,
 ) : HD44780Display {
     init {
@@ -35,13 +35,37 @@ open class DirectHD44780Display(
         enablePin.setMode(OUTPUT)
     }
 
+    override fun initialize() {
+        clearDisplay()
+        functionSet(!is4BitMode, rows > 1, font5x10)
+        displayControl(true, _cursorVisible, _cursorBlink)
+        entryModeSet(increment = true, shift = false)
+    }
+
+    override var columns: Int = columns
+        protected set
+
     override var rows: Int = rows
-        set(value) {
-            require(value in setOf(1, 2, 4)) { "Unsupported number of rows: $value" }
-            field = value
-        }
+        protected set
 
     val is4BitMode: Boolean = dataPins.size == 4
+
+    override fun setSize(rows: Int, columns: Int) {
+        require(rows in setOf(1, 2, 4)) { "Unsupported number of rows: $rows" }
+
+        this.rows = rows
+        this.columns = columns
+
+        functionSet(!is4BitMode, rows > 1, font5x10)
+    }
+
+    override var font5x10: Boolean = false
+        get() = field
+        set(value) {
+            field = value
+
+            functionSet(!is4BitMode, rows > 1, value)
+        }
 
     override val getLineOffsets: List<UByte> by lazy {
         when (rows) {
