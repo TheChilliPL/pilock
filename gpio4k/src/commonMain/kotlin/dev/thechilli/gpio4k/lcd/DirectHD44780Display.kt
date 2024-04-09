@@ -17,13 +17,13 @@ import dev.thechilli.gpio4k.utils.sleepUs
  * @param characterRom Character set of the display.
  */
 open class DirectHD44780Display(
-    protected val rsPin: GpioPin,
-    protected val rwPin: GpioPin?,
-    protected val enablePin: GpioPin,
-    protected val dataPins: List<GpioPin>,
-    rows: Int,
-    columns: Int,
-    override val characterRom: HD44780CharacterSet = HD44780Display.ROM_A00,
+        protected val rsPin: GpioPin,
+        protected val rwPin: GpioPin?,
+        protected val enablePin: GpioPin,
+        protected val dataPins: List<GpioPin>,
+        rows: Int,
+        columns: Int,
+        override val characterRom: HD44780CharacterSet = HD44780Display.ROM_A00,
 ) : HD44780Display {
     init {
         // Constructor parameter validation
