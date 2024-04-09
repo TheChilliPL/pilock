@@ -3,7 +3,7 @@ package dev.thechilli.gpio4k.lcd
 import dev.thechilli.gpio4k.gpio.GpioIOMode
 import dev.thechilli.gpio4k.gpio.GpioIOMode.OUTPUT
 import dev.thechilli.gpio4k.gpio.GpioPin
-import dev.thechilli.gpio4k.utils.bitFromLeft
+import dev.thechilli.gpio4k.utils.bitFromRight
 import dev.thechilli.gpio4k.utils.sleep
 import dev.thechilli.gpio4k.utils.sleepUs
 
@@ -36,10 +36,21 @@ open class DirectHD44780Display(
     }
 
     override fun initialize() {
-        clearDisplay()
+        if(is4BitMode) synchronize4Bit()
         functionSet(!is4BitMode, rows > 1, font5x10)
+        clearDisplay()
         displayControl(true, _cursorVisible, _cursorBlink)
         entryModeSet(increment = true, shift = false)
+    }
+
+    protected fun synchronize4Bit() {
+        // https://en.wikipedia.org/wiki/Hitachi_HD44780_LCD_controller#Mode_selection
+        // Make sure to switch to 8-bit data length
+        writeData8Bit(0b0011u)
+        writeData8Bit(0b0011u)
+        writeData8Bit(0b0011u)
+        // Switch to 4-bit data length
+        writeData8Bit(0b0010u)
     }
 
     override var columns: Int = columns
@@ -49,6 +60,42 @@ open class DirectHD44780Display(
         protected set
 
     val is4BitMode: Boolean = dataPins.size == 4
+
+    override fun clearDisplay() {
+        currentlyInCgRam = false
+        currentAddress = 0u
+        super.clearDisplay()
+    }
+
+    override fun returnHome() {
+        currentlyInCgRam = false
+        currentAddress = 0u
+        super.returnHome()
+    }
+
+    override fun setDdRamAddress(address: UByte) {
+        currentlyInCgRam = false
+        currentAddress = address
+        super.setDdRamAddress(address)
+    }
+
+    override fun setCgRamAddress(address: UByte) {
+        currentlyInCgRam = true
+        currentAddress = address
+        super.setCgRamAddress(address)
+    }
+
+    override fun cursorDisplayShift(displayShift: Boolean, right: Boolean) {
+        if(!displayShift) {
+            // Cursor shift
+            if(right) {
+                currentAddress++
+            } else {
+                currentAddress--
+            }
+        }
+        super.cursorDisplayShift(displayShift, right)
+    }
 
     override fun setSize(rows: Int, columns: Int) {
         require(rows in setOf(1, 2, 4)) { "Unsupported number of rows: $rows" }
@@ -78,11 +125,15 @@ open class DirectHD44780Display(
 
     override val readingAvailable: Boolean = rwPin != null
 
-    override val currentAddress: UByte
-        get() = if(readingAvailable) readData(false) else TODO("Reading is not available")
+    override var currentAddress: UByte = 0u
+        set(value) {
+            if(currentlyInCgRam)
+                field = value and 0b00111111u
+            else
+                field = value and 0b01111111u
+        }
 
-    override val currentlyInCgRam: Boolean
-        get() = TODO("Not implemented yet!")
+    override var currentlyInCgRam: Boolean = false
 
     private var _cursorDirection = CursorDirection.Right
     override var cursorDirection
@@ -130,15 +181,53 @@ open class DirectHD44780Display(
     }
 
     override fun writeData(rs: Boolean, data: UByte) {
-        if(is4BitMode) TODO("4-bit mode is not implemented yet!")
+        if(rs) {
+            // Writing character
+            if(cursorDirection == CursorDirection.Right) {
+                currentAddress++
+            } else {
+                currentAddress--
+            }
+        }
 
         // Make sure the pins are in output mode
         setDataPinsMode(OUTPUT)
 
         rwPin?.write(false)
         rsPin.write(rs)
-        for((i, pin) in dataPins.withIndex()) {
-            pin.write(data.bitFromLeft(i))
+
+        if(!is4BitMode) {
+            writeData8Bit(data)
+        } else {
+            writeData4Bit(data)
+        }
+    }
+
+    private fun writeData8Bit(data: UByte) {
+        for ((i, pin) in dataPins.withIndex()) {
+            pin.write(data.bitFromRight(i))
+        }
+
+        sleepUs(1)
+        enablePin.write(true)
+        sleepUs(1)
+        enablePin.write(false)
+        sleepUs(1500)
+    }
+
+    private fun writeData4Bit(data: UByte) {
+        for ((i, pin) in dataPins.withIndex()) {
+            pin.write(data.bitFromRight(i + 4))
+        }
+
+        sleepUs(1)
+        enablePin.write(true)
+        sleepUs(1)
+        enablePin.write(false)
+        sleepUs(1)
+
+        for ((i, pin) in dataPins.withIndex()) {
+            pin.write(data.bitFromRight(i))
         }
 
         sleepUs(1)
