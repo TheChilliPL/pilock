@@ -4,3 +4,8 @@ build
 
 # Ignore Gradle project-specific cache directory
 .gradle
+
+# Keep project code style
+!.idea
+.idea/*
+!.idea/codeStyles
