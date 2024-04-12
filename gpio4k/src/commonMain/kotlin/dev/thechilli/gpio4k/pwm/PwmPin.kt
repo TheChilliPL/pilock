@@ -24,7 +24,6 @@ interface PwmPin : AutoCloseable {
     fun setActiveLow(activeLow: Boolean): PwmPin
 
     fun reset() {
-        // TODO Check the default values
         disable()
         setPeriodNs(1000000)
         setDutyCycleNs(0)

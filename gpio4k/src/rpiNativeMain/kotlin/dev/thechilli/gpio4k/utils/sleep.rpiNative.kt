@@ -2,7 +2,7 @@ package dev.thechilli.gpio4k.utils
 
 import platform.posix.usleep
 
-actual fun sleep(millis: Int) {
+actual fun sleepMs(millis: Int) {
     usleep((millis * 1000).toUInt())
 }
 

@@ -1,6 +1,6 @@
 package dev.thechilli.gpio4k.utils
 
-actual fun sleep(millis: Int) {
+actual fun sleepMs(millis: Int) {
     Thread.sleep(millis.toLong())
 }
 
