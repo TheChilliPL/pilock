@@ -43,6 +43,13 @@ kotlin {
         attributes.attribute(targetAttr, "desktop")
     }
 
+    mingwX64("desktopNative") {
+        binaries {
+            executable()
+        }
+        attributes.attribute(targetAttr, "desktop")
+    }
+
     sourceSets {
         val commonMain by getting {
             dependencies {
@@ -62,8 +69,16 @@ kotlin {
             dependsOn(rpiCommonMain)
         }
 
-        val desktopJvmMain by getting {
+        val desktopCommonMain by creating {
             dependsOn(commonMain)
+        }
+
+        val desktopJvmMain by getting {
+            dependsOn(desktopCommonMain)
+        }
+
+        val desktopNativeMain by getting {
+            dependsOn(desktopCommonMain)
         }
     }
 }

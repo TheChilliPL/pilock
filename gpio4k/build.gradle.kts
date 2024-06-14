@@ -40,6 +40,19 @@ kotlin {
         attributes.attribute(targetAttr, "desktop")
     }
 
+    mingwX64("desktopNative") {
+        binaries {
+            sharedLib()
+        }
+        attributes.attribute(targetAttr, "desktop")
+        compilations.getByName("main") {
+            cinterops {
+                val input by creating
+                val windows by creating
+            }
+        }
+    }
+
     sourceSets {
         val commonMain by getting {
             dependencies {
@@ -59,8 +72,12 @@ kotlin {
             dependsOn(rpiCommonMain)
         }
 
-        val desktopJvmMain by getting {
+        val desktopCommonMain by creating {
             dependsOn(commonMain)
+        }
+
+        val desktopJvmMain by getting {
+            dependsOn(desktopCommonMain)
         }
 
         val desktopJvmTest by getting {
@@ -68,6 +85,10 @@ kotlin {
                 implementation(kotlin("test"))
                 implementation(kotlin("test-junit"))
             }
+        }
+
+        val desktopNativeMain by getting {
+            dependsOn(desktopCommonMain)
         }
     }
 }

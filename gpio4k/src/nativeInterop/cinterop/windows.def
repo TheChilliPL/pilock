@@ -1,0 +1,2 @@
+headers = Windows.h
+package = dev.thechilli.gpio4k.cinterop.windows
