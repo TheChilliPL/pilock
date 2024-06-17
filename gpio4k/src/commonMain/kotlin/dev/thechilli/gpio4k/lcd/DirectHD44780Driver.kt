@@ -1,7 +1,7 @@
 package dev.thechilli.gpio4k.lcd
 
 import dev.thechilli.gpio4k.gpio.*
-import dev.thechilli.gpio4k.utils.bitFromRight
+import dev.thechilli.gpio4k.utils.bitFromLeft
 import dev.thechilli.gpio4k.utils.sleepUs
 
 class DirectHD44780Driver(
@@ -33,16 +33,19 @@ class DirectHD44780Driver(
         if(isEffectively8Bit) {
             writeDataRaw(data)
         } else {
-            writeDataRaw((data.toInt() shr 4).toUByte())
-            writeDataRaw(data and 0b1111u)
+            writeDataRaw(data and 0b11110000u)
+            writeDataRaw(((data.toInt() and 0b1111) shl 4).toUByte())
         }
 
         sleepUs(1500)
     }
 
     private fun writeDataRaw(data: UByte) {
-        for ((index, pin) in pins.data.asReversed().withIndex()) {
-            pin.write(data.bitFromRight(index))
+        println("WRITING RAW DATA ${data.toString(2).padStart(8, '0')}")
+
+        for ((index, pin) in pins.data.withIndex()) {
+            println("Pin $pin = ${data.bitFromLeft(index)}")
+            pin.write(data.bitFromLeft(index))
         }
         sleepUs(1)
 

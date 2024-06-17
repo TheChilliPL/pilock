@@ -139,4 +139,8 @@ class GpiodPin(val gpioChipId: Int, val pinId: Int) : GpioPin {
             }
         }
     }
+
+    override fun toString(): String {
+        return "GpiodPin($gpioChipId/$pinId)"
+    }
 }

@@ -11,10 +11,20 @@ fun main() = closingScope {
     val rsPin = GpiodPin(0, 0).autoClose()
     val ePin = GpiodPin(0, 5).autoClose()
 
-    // Consecutive pins for data D7–D0
-    val dataPins = listOf(17, 27, 22, 24, 10, 9, 11, 7).map {
+    // Consecutive pins for data D7–D0. Red, orange, yellow…
+    var pinIds = listOf(17, 27, 22, 24, 10, 9, 11, 7)
+    val use4Only = true
+    if(use4Only) {
+        for(pinId in pinIds.drop(4)) {
+            val pin = GpiodPin(0, pinId).autoClose()
+            pin.reset(GpioIOMode.OUTPUT)
+            pin.write(true)
+        }
+        pinIds = pinIds.take(4)
+    }
+    val dataPins = pinIds.map {
         GpiodPin(0, it)
-    }.autoCloseAll().asReversed()
+    }.autoCloseAll()
 
 //    val lcd = DirectDOGM204Display(
 //        resetPin,
@@ -43,16 +53,19 @@ fun main() = closingScope {
 
     // Init
     val initBytes = byteArrayOf(
-        0b00111010, // 8-bit data, RE=1, REV=0
+        0b00101010, // 4-bit data, RE=1, REV=0
+//        0b00111010, // 8-bit data, RE=1, REV=0
         0b00001001, // 4-line
         0b00000110, // bottom view
         0b00011110, // BS1=1
-        0b00111001, // 8-bit data, RE=0, IS=1
+        0b00101001, // 4-bit data, RE=0, IS=1
+//        0b00111001, // 8-bit data, RE=0, IS=1
         0b00011011, // Internal OSC BS0=1 -> Bias 1/6
         0b01101110, // Follower control
         0b01010111, // Power control
         0b01110010, // Contrast set
-        0b00111000, // 8-bit data, RE=0, IS=0
+        0b00101000, // 4-bit data, RE=0, IS=0
+//        0b00111000, // 8-bit data, RE=0, IS=0
         0b00001111, // Display on
     )
 

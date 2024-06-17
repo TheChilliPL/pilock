@@ -11,7 +11,7 @@ import dev.thechilli.gpio4k.throwables.GpioException
  * @throws
  */
 class SysFsGpioPin(val pinId: Int) : GpioPin {
-    val pinPath = "/sys/class/gpio/gpio$pinId"
+    val pinPath get() = "/sys/class/gpio/gpio$pinId"
 
     init {
         // Reserve the pin
@@ -94,5 +94,9 @@ class SysFsGpioPin(val pinId: Int) : GpioPin {
         // Release the pin
         val unexportPath = "/sys/class/gpio/unexport"
         writeSysFs(unexportPath, pinId.toString())
+    }
+
+    override fun toString(): String {
+        return "SysFsGpioPin($pinId)"
     }
 }

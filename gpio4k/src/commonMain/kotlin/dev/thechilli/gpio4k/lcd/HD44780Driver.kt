@@ -62,15 +62,12 @@ abstract class HD44780Driver {
      */
     open fun initialize() {
         syncInterfaceMode()
-        functionSet(dataLength8Bit, twoLineMode, font5x10)
         clearDisplay()
         displayOnOffControl(displayOn = true, cursorOn = false, cursorBlink = false)
     }
 
     /**
-     * Performs function set three times to ensure the display is in 8-bit mode.
-     *
-     * Used during initialization to ensure the display is in 8-bit mode. Can be switched to 4-bit mode afterward.
+     * Performs function set three times to ensure the display is in 8-bit mode; then, if necessary, switches to 4-bit mode.
      */
     protected fun syncInterfaceMode() {
         forceSingleData = true
@@ -78,6 +75,8 @@ abstract class HD44780Driver {
         functionSet(dataLength8Bit = true, twoLineMode, font5x10)
         functionSet(dataLength8Bit = true, twoLineMode, font5x10)
         functionSet(dataLength8Bit = true, twoLineMode, font5x10)
+        if(!dataLength8Bit)
+            functionSet(dataLength8Bit, twoLineMode, font5x10)
 
         forceSingleData = false
     }
