@@ -1,5 +1,7 @@
 package dev.thechilli.gpio4k.gpio
 
+import dev.thechilli.gpio4k.throwables.GpioException
+
 /**
  * A GPIO pin that uses the sysfs interface.
  *

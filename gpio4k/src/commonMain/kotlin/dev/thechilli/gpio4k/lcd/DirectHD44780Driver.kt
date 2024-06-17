@@ -14,7 +14,7 @@ class DirectHD44780Driver(
         get() = pins.rw != null
 
     override fun initialize() {
-        pins.resetAll()
+        pins.resetAll(GpioIOMode.OUTPUT)
         super.initialize()
     }
 
@@ -23,6 +23,8 @@ class DirectHD44780Driver(
     }
 
     override fun writeData(data: UByte, rs: Boolean) {
+        println("WRITING RS $rs DATA ${data.toString(2).padStart(8, '0')}")
+
         setDataPinsMode(GpioIOMode.OUTPUT)
 
         pins.rw?.write(false)
@@ -48,6 +50,8 @@ class DirectHD44780Driver(
     }
 
     override fun readData(rs: Boolean): UByte {
+        println("READING RS $rs")
+
         setDataPinsMode(GpioIOMode.INPUT)
 
         pins.rw?.write(true)

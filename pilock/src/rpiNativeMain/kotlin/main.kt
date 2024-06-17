@@ -1,4 +1,5 @@
 
+import dev.thechilli.gpio4k.gpio.GpioIOMode
 import dev.thechilli.gpio4k.gpio.GpiodPin
 import dev.thechilli.gpio4k.gpio.pulse
 import dev.thechilli.gpio4k.lcd.DirectHD44780Driver
@@ -6,7 +7,7 @@ import dev.thechilli.gpio4k.utils.closingScope
 
 fun main() = closingScope {
     // LCD pins
-    val resetPin = GpiodPin(0, 15).autoClose().setActiveLow(true)
+    val resetPin = GpiodPin(0, 15).autoClose().setActiveLow(true).setMode(GpioIOMode.OUTPUT)
     val rsPin = GpiodPin(0, 0).autoClose()
     val ePin = GpiodPin(0, 5).autoClose()
 
@@ -41,23 +42,23 @@ fun main() = closingScope {
     driver.initialize()
 
     // Init
-//    val initBytes = byteArrayOf(
-//        0b00111010, // 8-bit data, RE=1, REV=0
-//        0b00001001, // 4-line
-//        0b00000110, // bottom view
-//        0b00011110, // BS1=1
-//        0b00111001, // 8-bit data, RE=0, IS=1
-//        0b00011011, // Internal OSC BS0=1 -> Bias 1/6
-//        0b01101110, // Follower control
-//        0b01010111, // Power control
-//        0b01110010, // Contrast set
-//        0b00111000, // 8-bit data, RE=0, IS=0
-//        0b00001111, // Display on
-//    )
-//
-//    for (byte in initBytes) {
-//        lcd.writeData(false, byte.toUByte())
-//    }
+    val initBytes = byteArrayOf(
+        0b00111010, // 8-bit data, RE=1, REV=0
+        0b00001001, // 4-line
+        0b00000110, // bottom view
+        0b00011110, // BS1=1
+        0b00111001, // 8-bit data, RE=0, IS=1
+        0b00011011, // Internal OSC BS0=1 -> Bias 1/6
+        0b01101110, // Follower control
+        0b01010111, // Power control
+        0b01110010, // Contrast set
+        0b00111000, // 8-bit data, RE=0, IS=0
+        0b00001111, // Display on
+    )
+
+    for (byte in initBytes) {
+        driver.writeData(byte.toUByte(), rs = false)
+    }
 
 //    lcd.functionSet(dataLength8Bit = true, twoLines = true, font5x10 = false)
 //    lcd.displayControl(true, true, false)

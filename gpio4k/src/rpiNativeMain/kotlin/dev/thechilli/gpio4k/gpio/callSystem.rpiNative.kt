@@ -1,5 +1,6 @@
 package dev.thechilli.gpio4k.gpio
 
+import dev.thechilli.gpio4k.throwables.GpioException
 import kotlinx.cinterop.*
 import platform.posix.*
 

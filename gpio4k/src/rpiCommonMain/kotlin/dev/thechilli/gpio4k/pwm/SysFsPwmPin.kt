@@ -1,8 +1,8 @@
 package dev.thechilli.gpio4k.pwm
 
-import dev.thechilli.gpio4k.gpio.GpioException
 import dev.thechilli.gpio4k.gpio.readSysFsString
 import dev.thechilli.gpio4k.gpio.writeSysFs
+import dev.thechilli.gpio4k.throwables.GpioException
 
 /**
  * A PWM pin using the sysfs interface.

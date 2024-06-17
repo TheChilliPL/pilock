@@ -1,5 +1,6 @@
 package dev.thechilli.gpio4k.gpio
 
+import dev.thechilli.gpio4k.throwables.GpioException
 import kotlin.random.Random
 
 class MockedGpioPin(
