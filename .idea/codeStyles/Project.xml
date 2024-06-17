@@ -20,6 +20,7 @@
         <list>
           <option value="80" />
           <option value="100" />
+          <option value="110" />
           <option value="120" />
         </list>
       </option>
