@@ -17,11 +17,70 @@ import dev.thechilli.gpio4k.utils.prefixedHexFormat
  */
 abstract class HD44780Driver {
     /**
+     * Whether the display supports 8-bit data length.
+     *
+     * Used for the function set command during initialization.
+     *
+     * For internal implementation, use [isEffectively8Bit] to take into account the [forceSingleData] flag.
+     */
+    open val dataLength8Bit: Boolean
+        get() = true
+    /**
+     * Forces the driver to act as if the display is in the 8-bit mode.
+     *
+     * If `true`, every [writeData] and [readData] call will be done as if the display is in 8-bit mode.
+     * This is used for initialization.
+     */
+    protected var forceSingleData = false
+
+    protected val isEffectively8Bit: Boolean
+        get() = dataLength8Bit || forceSingleData
+
+    /**
+     * Whether the display supports two-line mode.
+     *
+     * Used for the function set command during initialization.
+     */
+    abstract val twoLineMode: Boolean
+
+    /**
+     * Whether the display supports 5x10 font.
+     *
+     * Used for the function set command during initialization.
+     */
+    open val font5x10: Boolean
+        get() = false
+
+    /**
      * Initializes the driver appropriately.
      *
      * Any parameters required for initialization should be passed to the constructor.
+     *
+     * The default implementation initializes the display alone using the method that can be found in the datasheet.
+     * If the driver requires additional initialization, you can override this method and do it before calling
+     * `super.initialize()`.
      */
-    abstract fun initialize()
+    open fun initialize() {
+        syncInterfaceMode()
+        functionSet(dataLength8Bit, twoLineMode, font5x10)
+        clearDisplay()
+        displayOnOffControl(displayOn = true, cursorOn = false, cursorBlink = false)
+    }
+
+    /**
+     * Performs function set three times to ensure the display is in 8-bit mode.
+     *
+     * Used during initialization to ensure the display is in 8-bit mode. Can be switched to 4-bit mode afterward.
+     */
+    protected fun syncInterfaceMode() {
+        forceSingleData = true
+
+        functionSet(dataLength8Bit = true, twoLineMode, font5x10)
+        functionSet(dataLength8Bit = true, twoLineMode, font5x10)
+        functionSet(dataLength8Bit = true, twoLineMode, font5x10)
+
+        forceSingleData = false
+    }
 
     /**
      * Clears the entire display and sets the cursor to the home position.
@@ -64,9 +123,9 @@ abstract class HD44780Driver {
      * @param cursorBlink Whether the cursor character should blink.
      */
     open fun displayOnOffControl(
-        displayOn: Boolean = true,
-        cursorOn: Boolean = false,
-        cursorBlink: Boolean = false,
+        displayOn: Boolean,
+        cursorOn: Boolean,
+        cursorBlink: Boolean,
     ) {
         var data: UByte = 0b0000_1000u
         if (displayOn) data = data or 0b0000_0100u
@@ -83,8 +142,8 @@ abstract class HD44780Driver {
      * @param right Whether the shift should be to the right (`true`) or left (`false`).
      */
     open fun cursorDisplayShift(
-        displayShift: Boolean = false,
-        right: Boolean = true,
+        displayShift: Boolean,
+        right: Boolean,
     ) {
         var data: UByte = 0b0001_0000u
         if (displayShift) data = data or 0b0000_1000u
@@ -105,9 +164,9 @@ abstract class HD44780Driver {
      * @param font5x10 Whether the character font should be 5x10 (`true`) or 5x8 (`false`).
      */
     open fun functionSet(
-        dataLength8Bit: Boolean = true,
-        twoLines: Boolean = true,
-        font5x10: Boolean = false,
+        dataLength8Bit: Boolean,
+        twoLines: Boolean,
+        font5x10: Boolean,
     ) {
         var data: UByte = 0b0010_0000u
         if (dataLength8Bit) data = data or 0b0001_0000u

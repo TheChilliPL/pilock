@@ -1,35 +1,44 @@
 
 import dev.thechilli.gpio4k.gpio.GpiodPin
-import dev.thechilli.gpio4k.lcd.DirectDOGM204Display
-import dev.thechilli.gpio4k.pwm.SysFsPwmPin
+import dev.thechilli.gpio4k.gpio.pulse
+import dev.thechilli.gpio4k.lcd.DirectHD44780Driver
 import dev.thechilli.gpio4k.utils.closingScope
-import dev.thechilli.gpio4k.utils.sleepMs
 
 fun main() = closingScope {
     // LCD pins
     val resetPin = GpiodPin(0, 15).autoClose().setActiveLow(true)
     val rsPin = GpiodPin(0, 0).autoClose()
-    val enPin = GpiodPin(0, 5).autoClose()
+    val ePin = GpiodPin(0, 5).autoClose()
 
-    // Consecutive pins for data
+    // Consecutive pins for data D7–D0
     val dataPins = listOf(17, 27, 22, 24, 10, 9, 11, 7).map {
         GpiodPin(0, it)
     }.autoCloseAll().asReversed()
 
-    val lcd = DirectDOGM204Display(
-        resetPin,
-//    val lcd = DirectHD44780Display(
-        rsPin,
-        null,
-        enPin,
-        dataPins,
-        4,
-        20
+//    val lcd = DirectDOGM204Display(
+//        resetPin,
+////    val lcd = DirectHD44780Display(
+//        rsPin,
+//        null,
+//        enPin,
+//        dataPins,
+//        4,
+//        20
+//    )
+    resetPin.pulse(1, 1000)
+
+    val driver = DirectHD44780Driver(
+        DirectHD44780Driver.Pins(
+            rsPin,
+            ePin,
+            dataPins,
+        ),
+        twoLineMode = true,
     )
 
     println("Initializing display…")
 
-    lcd.initialize()
+    driver.initialize()
 
     // Init
 //    val initBytes = byteArrayOf(
@@ -56,16 +65,18 @@ fun main() = closingScope {
     println("Trying to display…")
 
     // Clear display
-    lcd.clearDisplay()
-    lcd.print("Hello checkpoint")
-
-    val ledPin = SysFsPwmPin(0, 0).autoClose()
-
-    println("Starting LED")
-    ledPin.enable()
-
-    for(i in 0..100) {
-        ledPin.setRatio(0.01 * i)
-        sleepMs(100)
+    driver.clearDisplay()
+    for(char in "Hello checkpoint") {
+        driver.writeData(char.code.toUByte(), true)
     }
+
+//    val ledPin = SysFsPwmPin(0, 0).autoClose()
+//
+//    println("Starting LED")
+//    ledPin.enable()
+//
+//    for(i in 0..100) {
+//        ledPin.setRatio(0.01 * i)
+//        sleepMs(100)
+//    }
 }
