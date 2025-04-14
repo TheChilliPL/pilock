@@ -34,9 +34,56 @@ pub trait GpioDriver: Debug {
     ) -> GpioResult<Box<dyn GpioBus<N> + '_>>;
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum GpioActiveLevel {
+    High,
+    Low,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum GpioBias {
+    None,
+    PullUp,
+    PullDown,
+}
+
 pub trait GpioPin: Debug {
     fn as_input(&mut self) -> GpioResult<Box<dyn GpioInput + '_>>;
     fn as_output(&mut self) -> GpioResult<Box<dyn GpioOutput + '_>>;
+
+    fn supports_active_level(&self) -> bool {
+        false
+    }
+    fn active_level(&self) -> GpioActiveLevel {
+        GpioActiveLevel::High
+    }
+    fn set_active_level(&mut self, _level: GpioActiveLevel) -> GpioResult<()> {
+        Err(GpioError::NotSupported)
+    }
+    fn with_active_level(mut self, level: GpioActiveLevel) -> GpioResult<Self>
+    where
+        Self: Sized,
+    {
+        self.set_active_level(level)?;
+        Ok(self)
+    }
+
+    fn supports_bias(&self) -> bool {
+        false
+    }
+    fn bias(&self) -> GpioBias {
+        GpioBias::None
+    }
+    fn set_bias(&mut self, _bias: GpioBias) -> GpioResult<()> {
+        Err(GpioError::NotSupported)
+    }
+    fn with_bias(mut self, bias: GpioBias) -> GpioResult<Self>
+    where
+        Self: Sized,
+    {
+        self.set_bias(bias)?;
+        Ok(self)
+    }
 }
 
 pub trait GpioInput: Debug {
@@ -50,6 +97,40 @@ pub trait GpioOutput: Debug {
 pub trait GpioBus<const N: usize>: Debug {
     fn as_input(&mut self) -> GpioResult<Box<dyn GpioBusInput<N> + '_>>;
     fn as_output(&mut self) -> GpioResult<Box<dyn GpioBusOutput<N> + '_>>;
+
+    fn supports_active_level(&self) -> bool {
+        false
+    }
+    fn active_level(&self) -> GpioActiveLevel {
+        GpioActiveLevel::High
+    }
+    fn set_active_level(&mut self, _level: GpioActiveLevel) -> GpioResult<()> {
+        Err(GpioError::NotSupported)
+    }
+    fn with_active_level(mut self, level: GpioActiveLevel) -> GpioResult<Self>
+    where
+        Self: Sized,
+    {
+        self.set_active_level(level)?;
+        Ok(self)
+    }
+
+    fn supports_bias(&self) -> bool {
+        false
+    }
+    fn bias(&self) -> GpioBias {
+        GpioBias::None
+    }
+    fn set_bias(&mut self, _bias: GpioBias) -> GpioResult<()> {
+        Err(GpioError::NotSupported)
+    }
+    fn with_bias(mut self, bias: GpioBias) -> GpioResult<Self>
+    where
+        Self: Sized,
+    {
+        self.set_bias(bias)?;
+        Ok(self)
+    }
 }
 
 pub trait GpioBusInput<const N: usize>: Debug {

@@ -1,6 +1,6 @@
 use crate::gpio::{
-    GpioBus, GpioBusInput, GpioBusOutput, GpioDriver, GpioError, GpioInput, GpioOutput, GpioPin,
-    GpioResult,
+    GpioActiveLevel, GpioBias, GpioBus, GpioBusInput, GpioBusOutput, GpioDriver, GpioError,
+    GpioInput, GpioOutput, GpioPin, GpioResult,
 };
 use bitvec::vec::BitVec;
 use std::fmt::{Debug, Formatter};
@@ -47,6 +47,8 @@ impl GpioDriver for GpiodDriver {
         Ok(Box::new(GpiodPin {
             driver: self,
             pin_index: index,
+            active_level: GpioActiveLevel::High,
+            bias: GpioBias::None,
         }))
     }
 
@@ -71,13 +73,36 @@ impl GpioDriver for GpiodDriver {
         Ok(Box::new(GpiodBus {
             driver: self,
             pin_indices: indices,
+            active_level: GpioActiveLevel::High,
+            bias: GpioBias::None,
         }))
+    }
+}
+
+impl From<GpioActiveLevel> for gpiod::Active {
+    fn from(level: GpioActiveLevel) -> Self {
+        match level {
+            GpioActiveLevel::High => gpiod::Active::High,
+            GpioActiveLevel::Low => gpiod::Active::Low,
+        }
+    }
+}
+
+impl From<GpioBias> for gpiod::Bias {
+    fn from(bias: GpioBias) -> Self {
+        match bias {
+            GpioBias::None => gpiod::Bias::Disable,
+            GpioBias::PullUp => gpiod::Bias::PullUp,
+            GpioBias::PullDown => gpiod::Bias::PullDown,
+        }
     }
 }
 
 struct GpiodPin<'a> {
     driver: &'a GpiodDriver,
     pin_index: usize,
+    active_level: GpioActiveLevel,
+    bias: GpioBias,
 }
 
 impl Debug for GpiodPin<'_> {
@@ -88,21 +113,51 @@ impl Debug for GpiodPin<'_> {
 
 impl GpioPin for GpiodPin<'_> {
     fn as_input(&mut self) -> GpioResult<Box<dyn GpioInput + '_>> {
-        let line = self
-            .driver
-            .chip
-            .request_lines(gpiod::Options::input([self.pin_index as u32]))?;
+        let line = self.driver.chip.request_lines(
+            gpiod::Options::input([self.pin_index as u32])
+                .consumer(env!("CARGO_PKG_NAME"))
+                .active(self.active_level.into())
+                .bias(self.bias.into()),
+        )?;
         let input = GpiodInput { pin: self, line };
         Ok(Box::new(input))
     }
 
     fn as_output(&mut self) -> GpioResult<Box<dyn GpioOutput + '_>> {
-        let line = self
-            .driver
-            .chip
-            .request_lines(gpiod::Options::output([self.pin_index as u32]))?;
+        let line = self.driver.chip.request_lines(
+            gpiod::Options::output([self.pin_index as u32])
+                .consumer(env!("CARGO_PKG_NAME"))
+                .active(self.active_level.into())
+                .bias(self.bias.into()),
+        )?;
         let output = GpiodOutput { pin: self, line };
         Ok(Box::new(output))
+    }
+
+    fn supports_active_level(&self) -> bool {
+        true
+    }
+
+    fn active_level(&self) -> GpioActiveLevel {
+        self.active_level
+    }
+
+    fn set_active_level(&mut self, level: GpioActiveLevel) -> GpioResult<()> {
+        self.active_level = level;
+        Ok(())
+    }
+
+    fn supports_bias(&self) -> bool {
+        true
+    }
+
+    fn bias(&self) -> GpioBias {
+        self.bias
+    }
+
+    fn set_bias(&mut self, bias: GpioBias) -> GpioResult<()> {
+        self.bias = bias;
+        Ok(())
     }
 }
 
@@ -151,6 +206,8 @@ impl GpioOutput for GpiodOutput<'_> {
 struct GpiodBus<'a, const N: usize> {
     driver: &'a GpiodDriver,
     pin_indices: [usize; N],
+    active_level: GpioActiveLevel,
+    bias: GpioBias,
 }
 
 impl<const N: usize> Debug for GpiodBus<'_, N> {
@@ -161,25 +218,61 @@ impl<const N: usize> Debug for GpiodBus<'_, N> {
 
 impl<const N: usize> GpioBus<N> for GpiodBus<'_, N> {
     fn as_input(&mut self) -> GpioResult<Box<dyn GpioBusInput<N> + '_>> {
-        let line = self.driver.chip.request_lines(gpiod::Options::input(
-            self.pin_indices
-                .iter()
-                .map(|&index| index as u32)
-                .collect::<Vec<_>>(),
-        ))?;
+        let line = self.driver.chip.request_lines(
+            gpiod::Options::input(
+                self.pin_indices
+                    .iter()
+                    .map(|&index| index as u32)
+                    .collect::<Vec<_>>(),
+            )
+            .consumer(env!("CARGO_PKG_NAME"))
+            .active(self.active_level.into())
+            .bias(self.bias.into()),
+        )?;
         let input = GpiodBusInput { bus: self, line };
         Ok(Box::new(input))
     }
 
     fn as_output(&mut self) -> GpioResult<Box<dyn GpioBusOutput<N> + '_>> {
-        let line = self.driver.chip.request_lines(gpiod::Options::output(
-            self.pin_indices
-                .iter()
-                .map(|&index| index as u32)
-                .collect::<Vec<_>>(),
-        ))?;
+        let line = self.driver.chip.request_lines(
+            gpiod::Options::output(
+                self.pin_indices
+                    .iter()
+                    .map(|&index| index as u32)
+                    .collect::<Vec<_>>(),
+            )
+            .consumer(env!("CARGO_PKG_NAME"))
+            .active(self.active_level.into())
+            .bias(self.bias.into()),
+        )?;
         let output = GpiodBusOutput { bus: self, line };
         Ok(Box::new(output))
+    }
+
+    fn supports_active_level(&self) -> bool {
+        true
+    }
+
+    fn active_level(&self) -> GpioActiveLevel {
+        self.active_level
+    }
+
+    fn set_active_level(&mut self, level: GpioActiveLevel) -> GpioResult<()> {
+        self.active_level = level;
+        Ok(())
+    }
+
+    fn supports_bias(&self) -> bool {
+        true
+    }
+
+    fn bias(&self) -> GpioBias {
+        self.bias
+    }
+
+    fn set_bias(&mut self, bias: GpioBias) -> GpioResult<()> {
+        self.bias = bias;
+        Ok(())
     }
 }
 
