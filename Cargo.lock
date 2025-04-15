@@ -208,7 +208,6 @@ dependencies = [
  "dotenv",
  "eyre",
  "gpiod",
- "libc",
  "log",
  "pretty_env_logger",
  "sysinfo",
