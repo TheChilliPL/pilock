@@ -51,64 +51,64 @@ fn main() -> eyre::Result<()> {
     let pin_rw_out = pin_rw.as_output()?;
     let pin_rs_out = pin_rs.as_output()?;
 
-    {
-        let mut data_bus = gpio.get_pin_bus(bus_pins)?;
-
-        let mut driver = GpioHD44780Driver::new_8bit(
-            &*pin_e_out,
-            Some(&*pin_rw_out),
-            &*pin_rs_out,
-            &mut *data_bus,
-        );
-
-        driver.init(true, false)?;
-
-        let init = [
-            0b00111010, 0b00001001, 0b00000110, 0b00011110, 0b00111001, 0b00011011, 0b01101110,
-            0b01010111, 0b01110010, 0b00111000, 0b00001111,
-        ];
-
-        for i in init {
-            driver.send_command(i)?;
-        }
-
-        driver.clear_display()?;
-
-        let now = OffsetDateTime::now_local()?;
-        let hms = now.to_hms();
-
-        let str = format!("Hi PiLock {:02}:{:02}:{:02}", hms.0, hms.1, hms.2);
-        for c in str.chars() {
-            driver.send_data(c as u8)?;
-        }
-
-        driver.return_home()?;
-
-        driver.set_ddram_address(0x20)?;
-
-        let str = System::kernel_version()
-            .as_deref()
-            .unwrap_or(UNKNOWN_STR)
-            .to_string();
-        for c in str.chars() {
-            driver.send_data(c as u8)?;
-        }
-
-        driver.set_ddram_address(0x40)?;
-
-        let str = System::cpu_arch();
-        for c in str.chars() {
-            driver.send_data(c as u8)?;
-        }
-
-        driver.set_ddram_address(0x60)?;
-
-        for c in "8-bit interface works".chars() {
-            driver.send_data(c as u8)?;
-        }
-    }
-
-    sleep(Duration::from_secs(2));
+    // {
+    //     let mut data_bus = gpio.get_pin_bus(bus_pins)?;
+    //
+    //     let mut driver = GpioHD44780Driver::new_8bit(
+    //         &*pin_e_out,
+    //         Some(&*pin_rw_out),
+    //         &*pin_rs_out,
+    //         &mut *data_bus,
+    //     );
+    //
+    //     driver.init(true, false)?;
+    //
+    //     let init = [
+    //         0b00111010, 0b00001001, 0b00000110, 0b00011110, 0b00111001, 0b00011011, 0b01101110,
+    //         0b01010111, 0b01110010, 0b00111000, 0b00001111,
+    //     ];
+    //
+    //     for i in init {
+    //         driver.send_command(i)?;
+    //     }
+    //
+    //     driver.clear_display()?;
+    //
+    //     let now = OffsetDateTime::now_local()?;
+    //     let hms = now.to_hms();
+    //
+    //     let str = format!("Hi PiLock {:02}:{:02}:{:02}", hms.0, hms.1, hms.2);
+    //     for c in str.chars() {
+    //         driver.send_data(c as u8)?;
+    //     }
+    //
+    //     driver.return_home()?;
+    //
+    //     driver.set_ddram_address(0x20)?;
+    //
+    //     let str = System::kernel_version()
+    //         .as_deref()
+    //         .unwrap_or(UNKNOWN_STR)
+    //         .to_string();
+    //     for c in str.chars() {
+    //         driver.send_data(c as u8)?;
+    //     }
+    //
+    //     driver.set_ddram_address(0x40)?;
+    //
+    //     let str = System::cpu_arch();
+    //     for c in str.chars() {
+    //         driver.send_data(c as u8)?;
+    //     }
+    //
+    //     driver.set_ddram_address(0x60)?;
+    //
+    //     for c in "8-bit interface works".chars() {
+    //         driver.send_data(c as u8)?;
+    //     }
+    // }
+    //
+    // sleep(Duration::from_secs(2));
 
     {
         let dead_pins = [5, 6, 13, 19];
