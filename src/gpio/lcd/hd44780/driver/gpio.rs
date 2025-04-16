@@ -176,40 +176,6 @@ impl<'a> GpioHD44780Driver<'a> {
 
 impl HD44780Driver for GpioHD44780Driver<'_> {
     fn init(&mut self, multiline: bool, alt_font: bool) -> GpioResult<()> {
-        // match &mut self.data_bus {
-        //     GpioHD44780Bus::Bus8Bit(_) => {
-        //         self.send(0b00111000, false)?;
-        //         self.send(0b00111000, false)?;
-        //         self.send(0b00111000, false)?;
-        //     }
-        //     GpioHD44780Bus::Bus4Bit(_) => {
-        //         self.pin_rs.write(false)?;
-        //
-        //         if let Some(pin_rw) = self.pin_rw {
-        //             pin_rw.write(false)?;
-        //         }
-        //
-        //         let send_nibble = |driver: &mut GpioHD44780Driver, nibble: u8| -> GpioResult<()> {
-        //             let GpioHD44780Bus::Bus4Bit(ref mut bus) = driver.data_bus else {
-        //                 return Err(GpioError::NotSupported);
-        //             };
-        //             let bus = bus.as_output()?;
-        //             bus.write_nibble(nibble)?;
-        //             self.pin_e.write(true)?;
-        //             sleep(Duration::from_micros(1));
-        //             self.pin_e.write(false)?;
-        //             sleep(Duration::from_micros(1));
-        //             Ok(())
-        //         };
-        //
-        //         // Ensure 8-bit interface
-        //         send_nibble(self, 0b0011)?;
-        //         send_nibble(self, 0b0011)?;
-        //         send_nibble(self, 0b0011)?;
-        //         // Set to 4-bit interface
-        //         send_nibble(self, 0b0010)?;
-        //     }
-        // }
         // Synchronize
         match self.data_bus {
             GpioHD44780Bus::Bus8Bit(_) => {

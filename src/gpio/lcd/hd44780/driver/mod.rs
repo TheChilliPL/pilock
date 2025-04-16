@@ -6,13 +6,7 @@ use std::fmt::Debug;
 
 pub trait HD44780Driver: Debug {
     /// Initializes the HD44780 controller with the default settings.
-    fn init(&mut self, multiline: bool, alt_font: bool) -> GpioResult<()> {
-        self.clear_display()?;
-        self.function_set(true, multiline, alt_font)?;
-        self.set_display_control(true, false, false)?;
-        self.set_entry_mode(CursorDirection::Right, false)?;
-        Ok(())
-    }
+    fn init(&mut self, multiline: bool, alt_font: bool) -> GpioResult<()>;
 
     /// Clears the display and sets the cursor to the home position.
     fn clear_display(&mut self) -> GpioResult<()> {

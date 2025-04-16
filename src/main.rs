@@ -3,14 +3,15 @@ mod gpio;
 use crate::gpio::GpioDriver;
 use crate::gpio::gpiod::GpiodDriver;
 use crate::gpio::lcd::hd44780::driver::{GpioHD44780Driver, HD44780Driver};
-use bitvec::macros::internal::funty::Fundamental;
 use dotenv::dotenv;
 use gpiod::Chip;
-use log::{debug, info};
+use log::info;
 use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::System;
 use time::OffsetDateTime;
+use crate::gpio::lcd::ssd1803a::driver::{GpioSSD1803ADriver, SSD1803ADriver};
+use crate::gpio::lcd::ssd1803a::driver::DoubleHeightMode::DoubleBoth;
 
 fn main() -> eyre::Result<()> {
     dotenv().ok();
@@ -118,26 +119,34 @@ fn main() -> eyre::Result<()> {
 
         dead_bus.as_output()?.write_nibble(0b0000)?;
 
-        let mut driver = GpioHD44780Driver::new_4bit(
+        let mut driver = GpioSSD1803ADriver::new_4bit(
+            None,
             &*pin_e_out,
             Some(&*pin_rw_out),
             &*pin_rs_out,
             &mut *data_bus,
         );
 
-        driver.init(true, false)?;
+        driver.init(4)?;
 
         let str = "Hi PiLock 4-bit";
 
         for c in str.chars() {
             driver.send_data(c as u8)?;
         }
+
+        // driver.send_command(0b00101010)?; // RE = 1
+        // driver.send_command(0b00011011)?; // Double height bottom
+        // driver.send_command(0b00101100)?; // RE = 0, double height on
+        driver.double_height_bias_dot_shift(DoubleBoth, Default::default(), false)?;
+        driver.function_set_0(false, true, true, false)?;
+
         
         loop {
             let time = OffsetDateTime::now_local()?;
             let (h, m, s) = time.to_hms();
             
-            driver.set_ddram_address(0x46)?;
+            driver.set_ddram_address(0x26)?;
             
             let str = format!("{:02}:{:02}:{:02}", h, m, s);
             for c in str.chars() {
