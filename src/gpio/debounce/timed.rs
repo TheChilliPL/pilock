@@ -4,15 +4,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use crate::gpio::{GpioInput, GpioResult};
 
-pub struct TimedDebounce {
-    input: &'_ dyn GpioInput,
+pub struct TimedDebounce<'a> {
+    input: &'a dyn GpioInput,
     state: AtomicBool,
     changed_since: Cell<Option<Instant>>,
     pub debounce_time: Duration,
 }
 
-impl TimedDebounce {
-    pub fn new(input: &'_ dyn GpioInput) -> Self {
+impl <'a> TimedDebounce<'a> {
+    pub fn new(input: &'a dyn GpioInput) -> Self {
         Self {
             input,
             state: AtomicBool::default(),
@@ -27,13 +27,13 @@ impl TimedDebounce {
     }
 }
 
-impl Debug for TimedDebounce {
+impl Debug for TimedDebounce<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}(debounced)", self.input)
     }
 }
 
-impl GpioInput for TimedDebounce {
+impl GpioInput for TimedDebounce<'_> {
     fn read(&self) -> GpioResult<bool> {
         let previous_state = self.state.load(Ordering::Relaxed);
         let new_state = self.input.read()?;

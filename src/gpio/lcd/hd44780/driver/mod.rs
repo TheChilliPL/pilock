@@ -6,9 +6,9 @@ use std::fmt::Debug;
 
 pub trait HD44780Driver: Debug {
     /// Initializes the HD44780 controller with the default settings.
-    fn init(&mut self) -> GpioResult<()> {
+    fn init(&mut self, multiline: bool, alt_font: bool) -> GpioResult<()> {
         self.clear_display()?;
-        self.function_set(true, true, false)?;
+        self.function_set(true, multiline, alt_font)?;
         self.set_display_control(true, false, false)?;
         self.set_entry_mode(CursorDirection::Right, false)?;
         Ok(())
@@ -94,7 +94,7 @@ pub trait HD44780Driver: Debug {
 
     /// Sets the DDRAM address.
     fn set_ddram_address(&mut self, address: u8) -> GpioResult<()> {
-        if address > 0b00111111 {
+        if address > 0b01111111 {
             return Err(GpioError::InvalidArgument);
         }
         let command = 0b10000000 | address;
