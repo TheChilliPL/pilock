@@ -1,6 +1,7 @@
 pub mod gpiod;
 pub mod lcd;
 pub mod debounce;
+pub mod pwm;
 
 use std::fmt::Debug;
 use thiserror::Error;
