@@ -12,6 +12,7 @@ use sysinfo::System;
 use time::OffsetDateTime;
 use crate::gpio::lcd::ssd1803a::driver::{GpioSSD1803ADriver, SSD1803ADriver};
 use crate::gpio::lcd::ssd1803a::driver::DoubleHeightMode::DoubleBoth;
+use crate::gpio::pwm::{PwmDriver, PwmExtension, SysfsPwmDriver};
 
 fn main() -> eyre::Result<()> {
     dotenv().ok();
@@ -109,6 +110,12 @@ fn main() -> eyre::Result<()> {
     // }
     //
     // sleep(Duration::from_secs(2));
+
+    let pwm = SysfsPwmDriver::get_chip(0)?;
+    let mut pin_pwm = pwm.get_pin(0)?;
+    pin_pwm.set_period(Duration::from_secs(1))?;
+    pin_pwm.set_duty(Duration::from_millis(500))?;
+    pin_pwm.enable()?;
 
     {
         let dead_pins = [5, 6, 13, 19];

@@ -6,7 +6,7 @@ pub mod pwm;
 use std::fmt::Debug;
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Eq, PartialEq, Clone)]
 pub enum GpioError {
     #[error("pin already in use")]
     AlreadyInUse,
@@ -15,9 +15,15 @@ pub enum GpioError {
     #[error("the feature is not supported on this backend")]
     NotSupported,
     #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(std::io::ErrorKind),
     #[error("error: {0}")]
     Other(String),
+}
+
+impl From<std::io::Error> for GpioError {
+    fn from(err: std::io::Error) -> Self {
+        GpioError::Io(err.kind())
+    }
 }
 
 pub type GpioResult<T> = Result<T, GpioError>;

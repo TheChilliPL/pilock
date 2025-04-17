@@ -3,6 +3,7 @@ use crate::gpio::{GpioError, GpioResult};
 use std::fmt::{Debug, Formatter};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use log::warn;
 
 pub struct SysfsPwmDriver {
     base_path: PathBuf,
@@ -27,6 +28,9 @@ impl SysfsPwmDriver {
         let path = Path::new("/sys/class/pwm");
         let chip_path = path.join(format!("pwmchip{}", index));
         if !chip_path.exists() {
+            if Self::count_chips() == Ok(0) {
+                warn!("no PWM chips found. Try loading the PWM overlay using `dtoverlay pwm`");
+            }
             return Err(GpioError::InvalidArgument);
         }
         Ok(SysfsPwmDriver { base_path: chip_path })
@@ -92,7 +96,7 @@ impl PwmPin for SysfsPwmPin {
     }
 
     fn set_duty_ns(&mut self, duty_ns: u32) -> GpioResult<()> {
-        let path = self.base_path.join("duty");
+        let path = self.base_path.join("duty_cycle");
         std::fs::write(&path, duty_ns.to_string())?;
         Ok(())
     }
@@ -133,3 +137,5 @@ impl PwmPin for SysfsPwmPin {
         Ok(())
     }
 }
+
+// TODO Unexport pin on drop
