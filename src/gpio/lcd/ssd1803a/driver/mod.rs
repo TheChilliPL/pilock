@@ -248,7 +248,7 @@ pub trait SSD1803ADriver: Debug {
     }
 
     fn set_ddram_address(&mut self, address: u8) -> GpioResult<()> {
-        if address > 0b00111111 {
+        if address > 0b01111111 {
             return Err(GpioError::InvalidArgument);
         }
         let command = 0b10000000 | address;

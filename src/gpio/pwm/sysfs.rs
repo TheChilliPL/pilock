@@ -54,7 +54,10 @@ impl PwmDriver for SysfsPwmDriver {
     fn get_pin(&self, index: usize) -> GpioResult<Box<dyn PwmPin>> {
         // Write the pin number to export
         let export_path = self.base_path.join("export");
-        std::fs::write(&export_path, index.to_string()).map_err(|_| GpioError::Other("exporting PWM pin failed".to_string()))?;
+        let export_res = std::fs::write(&export_path, index.to_string());//.map_err(|_| GpioError::Other("exporting PWM pin failed".to_string()))?;
+        if export_res.is_err() {
+            warn!("exporting PWM pin failed. Assuming it's exported and proceeding");
+        }
         let path = self.base_path.join(format!("pwm{}", index));
         if !path.exists() {
             return Err(GpioError::InvalidArgument);
@@ -89,7 +92,7 @@ impl PwmPin for SysfsPwmPin {
     }
 
     fn duty_ns(&self) -> GpioResult<u32> {
-        let path = self.base_path.join("duty");
+        let path = self.base_path.join("duty_cycle");
         let content = std::fs::read_to_string(&path)?;
         let duty: u32 = content.trim().parse().map_err(|_| GpioError::Other("parsing PWM duty failed".to_string()))?;
         Ok(duty)
@@ -138,4 +141,12 @@ impl PwmPin for SysfsPwmPin {
     }
 }
 
-// TODO Unexport pin on drop
+impl Drop for SysfsPwmPin {
+    fn drop(&mut self) {
+        let parent_path = self.base_path.parent().unwrap();
+        let path = parent_path.join("unexport");
+        let pin_name = self.base_path.file_name().unwrap().to_str().unwrap();
+        let pin_num = &pin_name[3..];
+        _ = std::fs::write(&path, pin_num);
+    }
+}
