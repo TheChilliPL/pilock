@@ -1,10 +1,9 @@
+use crate::gpio::{GpioBus, GpioBusInput, GpioBusOutput, GpioDriver, GpioError, GpioInput, GpioOutput, GpioPin, GpioResult};
+use bitvec::vec::BitVec;
+use memmap2::{MmapOptions, MmapRaw};
 use std::fmt::{Debug, Formatter};
 use std::fs::OpenOptions;
 use std::sync::atomic::AtomicU8;
-use bitvec::vec::BitVec;
-use log::trace;
-use memmap2::{MmapOptions, MmapRaw};
-use crate::gpio::{GpioActiveLevel, GpioBias, GpioBus, GpioBusInput, GpioBusOutput, GpioDriver, GpioError, GpioInput, GpioOutput, GpioPin, GpioResult};
 
 pub struct RawGpioDriver {
     mmap: MmapRaw,
@@ -55,7 +54,7 @@ impl RawGpioDriver {
 
         let register_value = unsafe { register_ptr.read_volatile() };
         let value = (register_value >> shift) & 0b111;
-        trace!("Read pin function: pin_index={} value={}", pin_index, value);
+        // trace!("Read pin function: pin_index={} value={}", pin_index, value);
         Ok(value)
     }
 
@@ -78,7 +77,7 @@ impl RawGpioDriver {
         register_value |= (function as u32) << shift; // Set the pin to input mode
         unsafe { register_ptr.write_volatile(register_value) };
 
-        trace!("Set pin function: pin_index={} function={}", pin_index, function);
+        // trace!("Set pin function: pin_index={} function={}", pin_index, function);
 
         Ok(())
     }
@@ -90,12 +89,12 @@ impl RawGpioDriver {
 
         let mmap = self.mmap.as_ptr() as *mut u32;
         // GPSETn/GPCLRn register
-        let register_ptr = unsafe { mmap.add(if high { 6 } else { 8 } + pin_index / 32) };
+        let register_ptr = unsafe { mmap.add(if high { 0x1c / 4 } else { 0x28 / 4 } + pin_index / 32) };
         let shift = pin_index % 32;
 
         unsafe { register_ptr.write_volatile(1 << shift) };
 
-        trace!("Set pin output: pin_index={} high={}", pin_index, high);
+        // trace!("Set pin output: pin_index={} high={}", pin_index, high);
 
         Ok(())
     }
@@ -107,12 +106,12 @@ impl RawGpioDriver {
 
         let mmap = self.mmap.as_ptr() as *const u32;
         // GPLEVn register
-        let register_ptr = unsafe { mmap.add(10 + pin_index / 32) };
+        let register_ptr = unsafe { mmap.add((0x34 / 4) + pin_index / 32) };
         let shift = pin_index % 32;
 
         let register_value = unsafe { register_ptr.read_volatile() };
         let level = (register_value >> shift) & 1;
-        trace!("Read pin level: pin_index={} level={}", pin_index, level);
+        // trace!("Read pin level: pin_index={} level={}", pin_index, level);
         Ok(level != 0)
     }
 }
