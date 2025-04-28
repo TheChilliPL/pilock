@@ -67,7 +67,7 @@ impl RawGpioDriver {
             return Err(GpioError::InvalidArgument);
         }
 
-        let mmap = self.mmap.as_ptr() as *mut u32;
+        let mmap = self.mmap.as_mut_ptr() as *mut u32;
         // GPFSELn register
         let register_ptr = unsafe { mmap.add(pin_index / 10) };
         let shift = (pin_index % 10) * 3;
@@ -87,7 +87,7 @@ impl RawGpioDriver {
             return Err(GpioError::InvalidArgument);
         }
 
-        let mmap = self.mmap.as_ptr() as *mut u32;
+        let mmap = self.mmap.as_mut_ptr() as *mut u32;
         // GPSETn/GPCLRn register
         let register_ptr = unsafe { mmap.add(if high { 0x1c / 4 } else { 0x28 / 4 } + pin_index / 32) };
         let shift = pin_index % 32;

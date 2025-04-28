@@ -1,11 +1,13 @@
 mod sysfs;
 mod ext;
+mod raw;
 
 use crate::gpio::{GpioError, GpioResult};
 use std::fmt::{Debug, Display};
 use std::str::FromStr;
 pub use sysfs::*;
 pub use ext::*;
+pub use raw::*;
 
 pub trait PwmDriver: Debug {
     fn count(&self) -> GpioResult<usize>;

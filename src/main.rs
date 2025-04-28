@@ -13,7 +13,7 @@ use sysinfo::System;
 use time::OffsetDateTime;
 use crate::gpio::lcd::ssd1803a::driver::{GpioSSD1803ADriver, SSD1803ADriver};
 use crate::gpio::lcd::ssd1803a::driver::DoubleHeightMode::DoubleBottom;
-use crate::gpio::pwm::{PwmDriver, PwmExtension, SysfsPwmDriver};
+use crate::gpio::pwm::{PwmDriver, PwmExtension, RawPwmDriver, SysfsPwmDriver};
 use crate::gpio::raw::RawGpioDriver;
 
 fn main() -> eyre::Result<()> {
@@ -56,6 +56,8 @@ fn main() -> eyre::Result<()> {
     // pin_pwm.set_period(Duration::from_secs(1))?;
     // pin_pwm.set_duty(Duration::from_millis(500))?;
     // pin_pwm.enable()?;
+
+    let pwm = RawPwmDriver::new_mem(0)?;
 
     {
         let mut data_bus = gpio.get_pin_bus(bus_pins)?;
