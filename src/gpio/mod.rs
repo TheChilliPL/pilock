@@ -44,17 +44,71 @@ pub trait GpioDriver: Debug {
     ) -> GpioResult<Box<dyn GpioBus<N> + '_>>;
 }
 
-#[derive(Copy, Clone, Debug)]
+/// Specifies the active level of the GPIO pin.
+///
+/// By default, the active level is high.
+///
+/// Might be software-implemented.
+#[derive(Copy, Clone, Debug, Default)]
 pub enum GpioActiveLevel {
-    High,
+    #[default] High,
     Low,
 }
 
-#[derive(Copy, Clone, Debug)]
+impl GpioActiveLevel {
+    /// Gets the real state that will be outputted on the GPIO pin based on the active level and the value.
+    pub fn get_state(&self, value: bool) -> bool {
+        match self {
+            GpioActiveLevel::High => value,
+            GpioActiveLevel::Low => !value,
+        }
+    }
+}
+
+
+/// Specifies the bias of the GPIO pin.
+///
+/// You can use this to enable pull-up or pull-down resistors.
+/// These should work in both input and output modes.
+#[derive(Copy, Clone, Debug, Default)]
 pub enum GpioBias {
-    None,
+    #[default] None,
     PullUp,
     PullDown,
+}
+
+/// Specifies the drive mode of the GPIO pin.
+///
+/// Works only in output mode.
+///
+/// By default, the drive mode is push-pull, which drives the pin high or low with low impedance.
+/// There's also open-drain and open-source modes, that leave the pin floating when the output is high or low, respectively.
+///
+/// Leaving the pin floating might be implemented by setting the pin to input mode.
+#[derive(Copy, Clone, Debug, Default)]
+pub enum GpioDriveMode {
+    /// GPIO pin is driven high or low with low impedance.
+    #[default] PushPull,
+    /// GPIO pin is driven low or left floating when high.
+    OpenDrain,
+    /// GPIO pin is driven high or left floating when low.
+    OpenSource,
+}
+
+impl GpioDriveMode {
+    /// Gets the real state that will be outputted on the GPIO pin based on the drive mode and the value.
+    ///
+    /// # Returns
+    /// - `Some(true)` if the pin will be driven high.
+    /// - `Some(false)` if the pin will be driven low.
+    /// - `None` if the pin will be left floating.
+    pub fn get_state(&self, value: bool) -> Option<bool> {
+        match self {
+            GpioDriveMode::PushPull => Some(value),
+            GpioDriveMode::OpenDrain => if value { None } else { Some(false) },
+            GpioDriveMode::OpenSource => if value { Some(true) } else { None },
+        }
+    }
 }
 
 pub trait GpioPin: Debug {
@@ -92,6 +146,25 @@ pub trait GpioPin: Debug {
         Self: Sized,
     {
         self.set_bias(bias)?;
+        Ok(self)
+    }
+
+    fn supports_drive_mode(&self) -> bool {
+        false
+    }
+    fn drive_mode(&self) -> GpioDriveMode {
+        GpioDriveMode::PushPull
+    }
+
+    fn set_drive_mode(&mut self, _mode: GpioDriveMode) -> GpioResult<()> {
+        Err(GpioError::NotSupported)
+    }
+
+    fn with_drive_mode(mut self, mode: GpioDriveMode) -> GpioResult<Self>
+    where
+        Self: Sized,
+    {
+        self.set_drive_mode(mode)?;
         Ok(self)
     }
 }
@@ -139,6 +212,25 @@ pub trait GpioBus<const N: usize>: Debug {
         Self: Sized,
     {
         self.set_bias(bias)?;
+        Ok(self)
+    }
+
+    fn supports_drive_mode(&self) -> bool {
+        false
+    }
+    fn drive_mode(&self) -> GpioDriveMode {
+        GpioDriveMode::PushPull
+    }
+
+    fn set_drive_mode(&mut self, _mode: GpioDriveMode) -> GpioResult<()> {
+        Err(GpioError::NotSupported)
+    }
+
+    fn with_drive_mode(mut self, mode: GpioDriveMode) -> GpioResult<Self>
+    where
+        Self: Sized,
+    {
+        self.set_drive_mode(mode)?;
         Ok(self)
     }
 }

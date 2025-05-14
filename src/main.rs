@@ -2,7 +2,7 @@ mod gpio;
 
 use std::hint::spin_loop;
 use std::ops::Add;
-use crate::gpio::GpioDriver;
+use crate::gpio::{GpioActiveLevel, GpioBias, GpioDriveMode, GpioDriver};
 use crate::gpio::gpiod::GpiodDriver;
 use crate::gpio::lcd::hd44780::driver::{GpioHD44780Driver, HD44780Driver};
 use dotenv::dotenv;
@@ -74,7 +74,7 @@ fn main() -> eyre::Result<()> {
 
     // Manually set GPIO18 to PWM0
     let _pwm_pin = gpio.get_pin(18)?;
-    gpio.set_pin_function(18, 0b010)?; // GPIO18 ALT5: PWM0
+    gpio.raw_set_pin_function(18, 0b010)?; // GPIO18 ALT5: PWM0
 
     let pwm = RawPwmDriver::new_mem(0)?;
     let mut pin_pwm = pwm.get_pin(0)?;
@@ -89,53 +89,113 @@ fn main() -> eyre::Result<()> {
     //     spin_loop();
     // }
 
-    {
-        let mut data_bus = gpio.get_pin_bus(bus_pins)?;
+    // {
+    let mut data_bus = gpio.get_pin_bus(bus_pins)?;
 
-        let mut driver = GpioSSD1803ADriver::new_4bit(
-            None,
-            &*pin_e_out,
-            Some(&*pin_rw_out),
-            &*pin_rs_out,
-            &mut *data_bus,
-        );
+    let mut driver = GpioSSD1803ADriver::new_4bit(
+        None,
+        &*pin_e_out,
+        Some(&*pin_rw_out),
+        &*pin_rs_out,
+        &mut *data_bus,
+    );
 
-        driver.init(4)?;
+    driver.init(4)?;
 
-        let str = "Hi PiLock 4-bit";
+    let contrast: u8 = 31; // 0-63
 
-        for c in str.chars() {
-            driver.send_data(c as u8)?;
-        }
+    driver.contrast_set(contrast)?;
+    driver.icon_booster_contrast(false, true, contrast)?;
+    //
+    //     let str = "Hi PiLock 4-bit";
+    //
+    //     for c in str.chars() {
+    //         driver.send_data(c as u8)?;
+    //     }
+    //
+    //     driver.set_ddram_address(0x20)?;
+    //
+    //     let str = System::cpu_arch();
+    //
+    //     for c in str.chars() {
+    //         driver.send_data(c as u8)?
+    //     }
+    //
+    //     driver.double_height_bias_dot_shift(DoubleBottom, Default::default(), false)?;
+    //     driver.function_set_0(false, true, true, false)?;
+    //
+    //     loop {
+    //         let time = OffsetDateTime::now_local()?;
+    //         let (h, m, s) = time.to_hms();
+    //
+    //         driver.set_ddram_address(0x36)?;
+    //
+    //         let str = format!("{:02}:{:02}:{:02}", h, m, s);
+    //         for c in str.chars() {
+    //             driver.send_data(c as u8)?;
+    //         }
+    //
+    //         // Delay until the start of the next second
+    //         let next_second = time.clone()
+    //             .add(Duration::from_secs(1))
+    //             .replace_nanosecond(0)?;
+    //         sleep(Duration::try_from(next_second - time)?);
+    //     }
+    // }
 
-        driver.set_ddram_address(0x20)?;
+    // Keypad test
 
-        let str = System::cpu_arch();
+    let mut cols = [ 23, 24, 25, 12 ];
+    let mut rows = [ 5, 6, 8, 7 ];
+    cols.reverse();
+    rows.reverse();
+    let mut cols = gpio.get_pin_bus(cols)?;
+    let mut rows = gpio.get_pin_bus(rows)?;
 
-        for c in str.chars() {
-            driver.send_data(c as u8)?
-        }
+    cols.set_active_level(GpioActiveLevel::Low)?;
+    cols.set_drive_mode(GpioDriveMode::OpenDrain)?;
+    rows.set_active_level(GpioActiveLevel::Low)?;
+    rows.set_bias(GpioBias::PullUp)?;
 
-        driver.double_height_bias_dot_shift(DoubleBottom, Default::default(), false)?;
-        driver.function_set_0(false, true, true, false)?;
+    let cols = cols.as_output()?;
+    let rows = rows.as_input()?;
 
-        loop {
-            let time = OffsetDateTime::now_local()?;
-            let (h, m, s) = time.to_hms();
-            
-            driver.set_ddram_address(0x36)?;
-            
-            let str = format!("{:02}:{:02}:{:02}", h, m, s);
-            for c in str.chars() {
-                driver.send_data(c as u8)?;
+    let mut keypad = [[false; 4]; 4];
+
+    let keypad_chars = [
+        ['1', '2', '3', 'A'],
+        ['4', '5', '6', 'B'],
+        ['7', '8', '9', 'C'],
+        ['*', '0', '#', 'D'],
+    ];
+
+    loop {
+        for col in 0..4 {
+            let nibble = 1 << (3 - col);
+            cols.write_nibble(nibble)?;
+            sleep(Duration::from_millis(10));
+            let value = rows.read_nibble()?;
+            for row in 0..4 {
+                let value = value >> (3 - row) & 1;
+                keypad[row][col] = value == 1;
             }
-
-            // Delay until the start of the next second
-            let next_second = time.clone()
-                .add(Duration::from_secs(1))
-                .replace_nanosecond(0)?;
-            sleep(Duration::try_from(next_second - time)?);
+            // debug!("Keypad pin {}: {:04b} (written {:04b})", pin, value, nibble);
         }
+
+        for row in 0..4 {
+            driver.set_ddram_address(0x20 * row)?;
+            let row = row as usize;
+            for col in 0..4 {
+                if keypad[row][col] {
+                    driver.send_data(keypad_chars[row][col] as u8)?;
+                } else {
+                    driver.send_data('-' as u8)?;
+                }
+                driver.send_data(' ' as u8)?;
+            }
+        }
+
+        sleep(Duration::from_millis(1000 / 60));
     }
 
     Ok(())

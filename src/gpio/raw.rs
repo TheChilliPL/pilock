@@ -1,4 +1,4 @@
-use crate::gpio::{GpioBus, GpioBusInput, GpioBusOutput, GpioDriver, GpioError, GpioInput, GpioOutput, GpioPin, GpioResult};
+use crate::gpio::{GpioActiveLevel, GpioBias, GpioBus, GpioBusInput, GpioBusOutput, GpioDriveMode, GpioDriver, GpioError, GpioInput, GpioOutput, GpioPin, GpioResult};
 use bitvec::vec::BitVec;
 use memmap2::{MmapOptions, MmapRaw};
 use std::fmt::{Debug, Formatter};
@@ -45,7 +45,7 @@ impl RawGpioDriver {
         Self::create("/dev/mem")
     }
 
-    pub(crate) fn get_pin_function(&self, pin_index: usize) -> GpioResult<u32> {
+    pub(crate) fn raw_get_pin_function(&self, pin_index: usize) -> GpioResult<u32> {
         if pin_index >= Self::PIN_COUNT {
             return Err(GpioError::InvalidArgument);
         }
@@ -61,7 +61,7 @@ impl RawGpioDriver {
         Ok(value)
     }
 
-    pub(crate) fn set_pin_function(&self, pin_index: usize, function: u8) -> GpioResult<()> {
+    pub(crate) fn raw_set_pin_function(&self, pin_index: usize, function: u8) -> GpioResult<()> {
         if function > 0b111 {
             return Err(GpioError::InvalidArgument);
         }
@@ -85,7 +85,7 @@ impl RawGpioDriver {
         Ok(())
     }
 
-    pub(crate) fn set_pin_output(&self, pin_index: usize, high: bool) -> GpioResult<()> {
+    pub(crate) fn raw_set_pin_output(&self, pin_index: usize, high: bool) -> GpioResult<()> {
         if pin_index >= Self::PIN_COUNT {
             return Err(GpioError::InvalidArgument);
         }
@@ -102,7 +102,7 @@ impl RawGpioDriver {
         Ok(())
     }
 
-    pub(crate) fn get_pin_level(&self, pin_index: usize) -> GpioResult<bool> {
+    pub(crate) fn raw_get_pin_level(&self, pin_index: usize) -> GpioResult<bool> {
         if pin_index >= Self::PIN_COUNT {
             return Err(GpioError::InvalidArgument);
         }
@@ -116,6 +116,74 @@ impl RawGpioDriver {
         let level = (register_value >> shift) & 1;
         // trace!("Read pin level: pin_index={} level={}", pin_index, level);
         Ok(level != 0)
+    }
+
+    pub(crate) fn drive_pin(&self, pin_index: usize, high: bool, mode: GpioDriveMode) -> GpioResult<()> {
+        let output = mode.get_state(high);
+
+        match output {
+            Some(output) => {
+                self.raw_set_pin_function(pin_index, 1)?; // Set to output
+                self.raw_set_pin_output(pin_index, output)?; // Set output level
+            }
+            None => {
+                self.raw_set_pin_function(pin_index, 0)?; // Set to input
+            }
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn raw_set_bias(&self, pin_index: usize, bias: GpioBias) -> GpioResult<()> {
+        if pin_index >= Self::PIN_COUNT {
+            return Err(GpioError::InvalidArgument);
+        }
+
+        let bias_value = match bias {
+            GpioBias::None => 0b00,
+            GpioBias::PullUp => 0b01,
+            GpioBias::PullDown => 0b10,
+        };
+
+        let mmap = self.mmap.as_mut_ptr() as *mut u32;
+        // GPIO_PUP_PDN_CNTRL_REGn register (yes that is a long name)
+        let register_ptr = unsafe { mmap.add(0xE4 / 4 + pin_index / 16) };
+        let shift = (pin_index % 16) * 2;
+        let mut register_value = unsafe { register_ptr.read_volatile() };
+        register_value &= !(0b11 << shift); // Clear the bits for this pin
+        register_value |= bias_value << shift; // Set the bias
+
+        unsafe { register_ptr.write_volatile(register_value) };
+
+        Ok(())
+    }
+
+    pub(crate) fn raw_get_bias(&self, pin_index: usize) -> GpioResult<GpioBias> {
+        if pin_index >= Self::PIN_COUNT {
+            return Err(GpioError::InvalidArgument);
+        }
+
+        let mmap = self.mmap.as_ptr() as *const u32;
+        // GPIO_PUP_PDN_CNTRL_REGn register (yes that is a long name)
+        let register_ptr = unsafe { mmap.add(0xE4 / 4 + pin_index / 16) };
+        let shift = (pin_index % 16) * 2;
+        let register_value = unsafe { register_ptr.read_volatile() };
+        let bias_value = (register_value >> shift) & 0b11;
+
+        let bias = match bias_value {
+            0b00 => GpioBias::None,
+            0b01 => GpioBias::PullUp,
+            0b10 => GpioBias::PullDown,
+            _ => return Err(GpioError::NotSupported),
+        };
+        Ok(bias)
+    }
+
+    pub(crate) fn raw_reset(&self, pin_index: usize) -> GpioResult<()> {
+        self.raw_set_pin_function(pin_index, 0)?;
+        self.raw_set_bias(pin_index, GpioBias::None)?;
+        self.raw_set_pin_output(pin_index, false)?;
+        Ok(())
     }
 }
 
@@ -140,12 +208,14 @@ impl GpioDriver for RawGpioDriver {
         }
 
         self.used_pins.set_aliased(index, true);
+        self.raw_reset(index)?;
 
         Ok(Box::new(RawGpioPin {
             driver: self,
             pin_index: index,
-            // active_level: GpioActiveLevel::High,
+            active_level: GpioActiveLevel::High,
             // bias: GpioBias::None,
+            drive_mode: GpioDriveMode::PushPull,
         }))
     }
 
@@ -162,11 +232,14 @@ impl GpioDriver for RawGpioDriver {
 
         for &index in &indices {
             self.used_pins.set_aliased(index, true);
+            self.raw_reset(index)?;
         }
 
         Ok(Box::new(RawGpioBus {
             driver: self,
             pin_indices: indices,
+            active_level: GpioActiveLevel::High,
+            drive_mode: GpioDriveMode::PushPull,
         }))
     }
 }
@@ -174,8 +247,9 @@ impl GpioDriver for RawGpioDriver {
 struct RawGpioPin<'a> {
     driver: &'a RawGpioDriver,
     pin_index: usize,
-    // active_level: GpioActiveLevel,
+    active_level: GpioActiveLevel,
     // bias: GpioBias,
+    drive_mode: GpioDriveMode,
 }
 
 impl Debug for RawGpioPin<'_> {
@@ -186,13 +260,52 @@ impl Debug for RawGpioPin<'_> {
 
 impl GpioPin for RawGpioPin<'_> {
     fn as_input(&mut self) -> GpioResult<Box<dyn GpioInput + '_>> {
-        self.driver.set_pin_function(self.pin_index, 0)?; // Set to input
+        self.driver.raw_set_pin_function(self.pin_index, 0)?; // Set to input
         Ok(Box::new(RawGpioInput { pin: self }))
     }
 
     fn as_output(&mut self) -> GpioResult<Box<dyn GpioOutput + '_>> {
-        self.driver.set_pin_function(self.pin_index, 1)?; // Set to output
+        self.driver.raw_set_pin_function(self.pin_index, 1)?; // Set to output
         Ok(Box::new(RawGpioOutput { pin: self }))
+    }
+
+    fn supports_active_level(&self) -> bool {
+        true
+    }
+
+    fn active_level(&self) -> GpioActiveLevel {
+        self.active_level
+    }
+
+    fn set_active_level(&mut self, level: GpioActiveLevel) -> GpioResult<()> {
+        self.active_level = level;
+        Ok(())
+    }
+
+    fn supports_bias(&self) -> bool {
+        true
+    }
+
+    fn bias(&self) -> GpioBias {
+        self.driver.raw_get_bias(self.pin_index).unwrap_or(GpioBias::None)
+    }
+
+    fn set_bias(&mut self, bias: GpioBias) -> GpioResult<()> {
+        self.driver.raw_set_bias(self.pin_index, bias)?;
+        Ok(())
+    }
+
+    fn supports_drive_mode(&self) -> bool {
+        true
+    }
+
+    fn drive_mode(&self) -> GpioDriveMode {
+        self.drive_mode
+    }
+
+    fn set_drive_mode(&mut self, mode: GpioDriveMode) -> GpioResult<()> {
+        self.drive_mode = mode;
+        Ok(())
     }
 }
 
@@ -214,7 +327,7 @@ impl Debug for RawGpioInput<'_> {
 
 impl GpioInput for RawGpioInput<'_> {
     fn read(&self) -> GpioResult<bool> {
-        self.pin.driver.get_pin_level(self.pin.pin_index)
+        Ok(self.pin.active_level.get_state(self.pin.driver.raw_get_pin_level(self.pin.pin_index)?))
     }
 }
 
@@ -230,13 +343,17 @@ impl Debug for RawGpioOutput<'_> {
 
 impl GpioOutput for RawGpioOutput<'_> {
     fn write(&self, value: bool) -> GpioResult<()> {
-        self.pin.driver.set_pin_output(self.pin.pin_index, value)
+        // self.pin.driver.raw_set_pin_output(self.pin.pin_index, value)
+        self.pin.driver.drive_pin(self.pin.pin_index, self.pin.active_level.get_state(value), self.pin.drive_mode)
     }
 }
 
 struct RawGpioBus<'a, const N: usize> {
     driver: &'a RawGpioDriver,
     pin_indices: [usize; N],
+    active_level: GpioActiveLevel,
+    drive_mode: GpioDriveMode,
+
 }
 
 impl<const N: usize> Debug for RawGpioBus<'_, N> {
@@ -248,16 +365,60 @@ impl<const N: usize> Debug for RawGpioBus<'_, N> {
 impl<const N: usize> GpioBus<N> for RawGpioBus<'_, N> {
     fn as_input(&mut self) -> GpioResult<Box<dyn GpioBusInput<N> + '_>> {
         for &pin_index in &self.pin_indices {
-            self.driver.set_pin_function(pin_index, 0)?; // Set to input
+            self.driver.raw_set_pin_function(pin_index, 0)?; // Set to input
         }
         Ok(Box::new(RawGpioBusInput { bus: self }))
     }
 
     fn as_output(&mut self) -> GpioResult<Box<dyn GpioBusOutput<N> + '_>> {
         for &pin_index in &self.pin_indices {
-            self.driver.set_pin_function(pin_index, 1)?; // Set to output
+            self.driver.raw_set_pin_function(pin_index, 1)?; // Set to output
         }
         Ok(Box::new(RawGpioBusOutput { bus: self }))
+    }
+
+    fn supports_active_level(&self) -> bool {
+        true
+    }
+
+    fn active_level(&self) -> GpioActiveLevel {
+        self.active_level
+    }
+
+    fn set_active_level(&mut self, level: GpioActiveLevel) -> GpioResult<()> {
+        self.active_level = level;
+        Ok(())
+    }
+
+    fn supports_bias(&self) -> bool {
+        true
+    }
+
+    fn bias(&self) -> GpioBias {
+        self.driver.raw_get_bias(self.pin_indices[0]).unwrap_or(GpioBias::None)
+    }
+
+    fn set_bias(&mut self, bias: GpioBias) -> GpioResult<()> {
+        for &pin_index in &self.pin_indices {
+            self.driver.raw_set_bias(pin_index, bias)?;
+        }
+        Ok(())
+    }
+
+    fn supports_drive_mode(&self) -> bool {
+        true
+    }
+
+    fn drive_mode(&self) -> GpioDriveMode {
+        self.drive_mode
+    }
+
+    fn set_drive_mode(&mut self, mode: GpioDriveMode) -> GpioResult<()> {
+        self.drive_mode = mode;
+        for &pin_index in &self.pin_indices {
+            self.driver.drive_pin(pin_index, false, mode)?;
+        }
+        Ok(())
     }
 }
 
@@ -265,7 +426,7 @@ impl<const N: usize> Drop for RawGpioBus<'_, N> {
     fn drop(&mut self) {
         for &pin_index in &self.pin_indices {
             for &pin_index in &self.pin_indices {
-                _ = self.driver.set_pin_function(pin_index, 0); // Set to input
+                _ = self.driver.raw_set_pin_function(pin_index, 0); // Set to input
             }
             self.driver.used_pins.set_aliased(pin_index, false);
         }
@@ -286,7 +447,7 @@ impl<const N: usize> GpioBusInput<N> for RawGpioBusInput<'_, N> {
     fn read(&self) -> GpioResult<[bool; N]> {
         let mut values = [false; N];
         for (i, &pin_index) in self.bus.pin_indices.iter().enumerate() {
-            values[i] = self.bus.driver.get_pin_level(pin_index)?;
+            values[i] = self.bus.active_level.get_state(self.bus.driver.raw_get_pin_level(pin_index)?);
         }
         Ok(values)
     }
@@ -305,7 +466,8 @@ impl<const N: usize> Debug for RawGpioBusOutput<'_, N> {
 impl<const N: usize> GpioBusOutput<N> for RawGpioBusOutput<'_, N> {
     fn write(&self, values: &[bool; N]) -> GpioResult<()> {
         for (i, &pin_index) in self.bus.pin_indices.iter().enumerate() {
-            self.bus.driver.set_pin_output(pin_index, values[i])?;
+            // self.bus.driver.raw_set_pin_output(pin_index, values[i])?;
+            self.bus.driver.drive_pin(pin_index, self.bus.active_level.get_state(values[i]), self.bus.drive_mode)?;
         }
         Ok(())
     }
