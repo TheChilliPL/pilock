@@ -2,7 +2,9 @@ mod gpio;
 
 use std::hint::spin_loop;
 use std::ops::Add;
-use crate::gpio::{GpioActiveLevel, GpioBias, GpioDriveMode, GpioDriver};
+use std::pin::pin;
+use std::ptr::NonNull;
+use crate::gpio::{GpioActiveLevel, GpioBias, GpioBusInput, GpioDriveMode, GpioDriver, GpioInput};
 use crate::gpio::gpiod::GpiodDriver;
 use crate::gpio::lcd::hd44780::driver::{GpioHD44780Driver, HD44780Driver};
 use dotenv::dotenv;
@@ -14,10 +16,12 @@ use sysinfo::System;
 use time::OffsetDateTime;
 use crate::gpio::clock::{ClockDriver, ClockSource, MashMode};
 use crate::gpio::clock::raw::RawClockDriver;
+use crate::gpio::debounce::TimedDebounce;
 use crate::gpio::lcd::ssd1803a::driver::{GpioSSD1803ADriver, SSD1803ADriver};
 use crate::gpio::lcd::ssd1803a::driver::DoubleHeightMode::DoubleBottom;
 use crate::gpio::pwm::{PwmDriver, PwmExtension, RawPwmDriver, SysfsPwmDriver};
 use crate::gpio::raw::RawGpioDriver;
+use crate::gpio::soft::{SoftGpioBus, SoftGpioBusInput};
 
 fn main() -> eyre::Result<()> {
     dotenv().ok();
@@ -169,7 +173,13 @@ fn main() -> eyre::Result<()> {
         ['*', '0', '#', 'D'],
     ];
 
+    let mut input: Vec<char> = Vec::with_capacity(8);
+
+    let mut last_pressed = None;
+
     loop {
+        let mut pressed = None;
+
         for col in 0..4 {
             let nibble = 1 << (3 - col);
             cols.write_nibble(nibble)?;
@@ -178,24 +188,66 @@ fn main() -> eyre::Result<()> {
             for row in 0..4 {
                 let value = value >> (3 - row) & 1;
                 keypad[row][col] = value == 1;
+
+                if value == 1 {
+                    if pressed.is_none() {
+                        pressed = Some(keypad_chars[row][col]);
+                    } else {
+                        continue;
+                    }
+                }
             }
             // debug!("Keypad pin {}: {:04b} (written {:04b})", pin, value, nibble);
         }
 
-        for row in 0..4 {
-            driver.set_ddram_address(0x20 * row)?;
-            let row = row as usize;
-            for col in 0..4 {
-                if keypad[row][col] {
-                    driver.send_data(keypad_chars[row][col] as u8)?;
-                } else {
-                    driver.send_data('-' as u8)?;
+        if let Some(pressed) = pressed {
+            if last_pressed != Some(pressed) {
+                last_pressed = Some(pressed);
+                debug!("Keypad pressed: {}", pressed);
+                match pressed {
+                    '*' => {
+                        input.pop();
+                    }
+                    '#' => {
+                        if input.len() > 0 {
+                            let str = input.iter().collect::<String>();
+                            debug!("Keypad input: {}", str);
+                            input.clear();
+                        }
+                    }
+                    _ => {
+                        if input.capacity() - input.len() > 0 {
+                            input.push(pressed);
+                        }
+                    }
                 }
-                driver.send_data(' ' as u8)?;
             }
+        } else {
+            last_pressed = None;
         }
 
-        sleep(Duration::from_millis(1000 / 60));
+        // for row in 0..4 {
+        //     driver.set_ddram_address(0x20 * row)?;
+        //     let row = row as usize;
+        //     for col in 0..4 {
+        //         if keypad[row][col] {
+        //             driver.send_data(keypad_chars[row][col] as u8)?;
+        //         } else {
+        //             driver.send_data('-' as u8)?;
+        //         }
+        //         driver.send_data(' ' as u8)?;
+        //     }
+        // }
+
+        driver.clear_display()?;
+
+        for i in 0..input.capacity() {
+            let char = input.get(i).cloned().unwrap_or('_');
+            driver.send_data(char as u8)?;
+            driver.send_data(' ' as u8)?;
+        }
+
+        sleep(Duration::from_millis(1000 / 30));
     }
 
     Ok(())

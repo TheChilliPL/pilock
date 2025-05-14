@@ -4,6 +4,8 @@ pub mod debounce;
 pub mod pwm;
 pub mod raw;
 pub mod clock;
+pub mod keypad;
+pub mod soft;
 
 use std::fmt::Debug;
 use thiserror::Error;
