@@ -1,27 +1,16 @@
 mod gpio;
 
-use std::hint::spin_loop;
-use std::ops::Add;
-use std::pin::pin;
-use std::ptr::NonNull;
-use crate::gpio::{GpioActiveLevel, GpioBias, GpioBusInput, GpioDriveMode, GpioDriver, GpioInput};
-use crate::gpio::gpiod::GpiodDriver;
-use crate::gpio::lcd::hd44780::driver::{GpioHD44780Driver, HD44780Driver};
+use crate::gpio::clock::raw::RawClockDriver;
+use crate::gpio::clock::{ClockDriver, ClockSource, MashMode};
+use crate::gpio::lcd::ssd1803a::driver::{GpioSSD1803ADriver, SSD1803ADriver};
+use crate::gpio::pwm::{PwmDriver, PwmExtension, RawPwmDriver};
+use crate::gpio::raw::RawGpioDriver;
+use crate::gpio::{GpioActiveLevel, GpioBias, GpioDriveMode, GpioDriver};
 use dotenv::dotenv;
-use gpiod::Chip;
 use log::{debug, info};
 use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::System;
-use time::OffsetDateTime;
-use crate::gpio::clock::{ClockDriver, ClockSource, MashMode};
-use crate::gpio::clock::raw::RawClockDriver;
-use crate::gpio::debounce::TimedDebounce;
-use crate::gpio::lcd::ssd1803a::driver::{GpioSSD1803ADriver, SSD1803ADriver};
-use crate::gpio::lcd::ssd1803a::driver::DoubleHeightMode::DoubleBottom;
-use crate::gpio::pwm::{PwmDriver, PwmExtension, RawPwmDriver, SysfsPwmDriver};
-use crate::gpio::raw::RawGpioDriver;
-use crate::gpio::soft::{SoftGpioBus, SoftGpioBusInput};
 
 fn main() -> eyre::Result<()> {
     dotenv().ok();
@@ -176,6 +165,7 @@ fn main() -> eyre::Result<()> {
     let mut input: Vec<char> = Vec::with_capacity(8);
 
     let mut last_pressed = None;
+    let mut requires_redraw = true;
 
     loop {
         let mut pressed = None;
@@ -207,17 +197,20 @@ fn main() -> eyre::Result<()> {
                 match pressed {
                     '*' => {
                         input.pop();
+                        requires_redraw = true;
                     }
                     '#' => {
                         if input.len() > 0 {
                             let str = input.iter().collect::<String>();
                             debug!("Keypad input: {}", str);
                             input.clear();
+                            requires_redraw = true;
                         }
                     }
                     _ => {
                         if input.capacity() - input.len() > 0 {
                             input.push(pressed);
+                            requires_redraw = true;
                         }
                     }
                 }
@@ -239,12 +232,16 @@ fn main() -> eyre::Result<()> {
         //     }
         // }
 
-        driver.clear_display()?;
+        if requires_redraw {
+            driver.clear_display()?;
 
-        for i in 0..input.capacity() {
-            let char = input.get(i).cloned().unwrap_or('_');
-            driver.send_data(char as u8)?;
-            driver.send_data(' ' as u8)?;
+            for i in 0..input.capacity() {
+                let char = input.get(i).cloned().unwrap_or('_');
+                driver.send_data(char as u8)?;
+                driver.send_data(' ' as u8)?;
+            }
+            
+            requires_redraw = false;
         }
 
         sleep(Duration::from_millis(1000 / 30));
