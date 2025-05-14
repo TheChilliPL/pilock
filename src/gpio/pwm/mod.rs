@@ -12,7 +12,7 @@ pub use raw::*;
 pub trait PwmDriver: Debug {
     fn count(&self) -> GpioResult<usize>;
 
-    fn get_pin(&self, index: usize) -> GpioResult<Box<dyn PwmPin>>;
+    fn get_pin(&self, index: usize) -> GpioResult<Box<dyn PwmPin + '_>>;
 }
 
 pub trait PwmPin: Debug {

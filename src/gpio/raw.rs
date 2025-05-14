@@ -11,10 +11,13 @@ pub struct RawGpioDriver {
 }
 
 impl RawGpioDriver {
-    #[cfg(target_pointer_width = "64")]
-    const GPIO_BASE: u32 = 0xFE200000;
-    #[cfg(target_pointer_width = "32")]
+    // 0x7e200000
+    // #[cfg(target_pointer_width = "64")]
+    // const GPIO_BASE: u32 = 0xFE200000;
+    // #[cfg(target_pointer_width = "32")]
     const GPIO_BASE: u32 = 0x3F200000;
+    // const GPIO_BASE: u32 = 0x7E200000;
+    // const GPIO_BASE: u32 = 0x20200000;
 
     const PIN_COUNT: usize = 58;
 
@@ -42,7 +45,7 @@ impl RawGpioDriver {
         Self::create("/dev/mem")
     }
 
-    fn get_pin_function(&self, pin_index: usize) -> GpioResult<u32> {
+    pub(crate) fn get_pin_function(&self, pin_index: usize) -> GpioResult<u32> {
         if pin_index >= Self::PIN_COUNT {
             return Err(GpioError::InvalidArgument);
         }
@@ -58,7 +61,7 @@ impl RawGpioDriver {
         Ok(value)
     }
 
-    fn set_pin_function(&self, pin_index: usize, function: u8) -> GpioResult<()> {
+    pub(crate) fn set_pin_function(&self, pin_index: usize, function: u8) -> GpioResult<()> {
         if function > 0b111 {
             return Err(GpioError::InvalidArgument);
         }
@@ -82,7 +85,7 @@ impl RawGpioDriver {
         Ok(())
     }
 
-    fn set_pin_output(&self, pin_index: usize, high: bool) -> GpioResult<()> {
+    pub(crate) fn set_pin_output(&self, pin_index: usize, high: bool) -> GpioResult<()> {
         if pin_index >= Self::PIN_COUNT {
             return Err(GpioError::InvalidArgument);
         }
@@ -99,7 +102,7 @@ impl RawGpioDriver {
         Ok(())
     }
 
-    fn get_pin_level(&self, pin_index: usize) -> GpioResult<bool> {
+    pub(crate) fn get_pin_level(&self, pin_index: usize) -> GpioResult<bool> {
         if pin_index >= Self::PIN_COUNT {
             return Err(GpioError::InvalidArgument);
         }

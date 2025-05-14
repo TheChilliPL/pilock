@@ -10,7 +10,7 @@ pub trait PwmExtension {
     fn set_duty(&mut self, duty: Duration) -> GpioResult<()>;
 }
 
-impl PwmExtension for dyn PwmPin {
+impl PwmExtension for dyn PwmPin + '_ {
     fn period(&self) -> GpioResult<Duration> {
         let period_ns = self.period_ns()?;
         Ok(Duration::from_nanos(period_ns.into()))

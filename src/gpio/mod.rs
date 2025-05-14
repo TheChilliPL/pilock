@@ -3,6 +3,7 @@ pub mod lcd;
 pub mod debounce;
 pub mod pwm;
 pub mod raw;
+pub mod clock;
 
 use std::fmt::Debug;
 use thiserror::Error;

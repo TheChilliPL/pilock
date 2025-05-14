@@ -7,6 +7,14 @@ use memmap2::{MmapOptions, MmapRaw};
 use crate::gpio::{GpioError, GpioResult};
 use crate::gpio::pwm::{PwmDriver, PwmPin, PwmPolarity};
 
+/// Raw PWM driver for the Raspberry Pi.
+/// 
+/// Requires `/dev/mem` access, so root privileges are needed.
+/// 
+/// Requires the pins to be set to the correct function before using this driver manually.
+/// Assumes the clock is set to 20 MHz, which is below the maximum supported frequency for PWM. It can
+/// be done with [ClockDriver](crate::gpio::clock::ClockDriver) set to [ClockSource::PllC](crate::gpio::clock::ClockSource::PllC)
+/// with a divisor of `50.0`.
 pub struct RawPwmDriver {
     mmap: MmapRaw,
     chip_index: u8,
@@ -14,9 +22,9 @@ pub struct RawPwmDriver {
 }
 
 impl RawPwmDriver {
-    #[cfg(target_pointer_width = "64")]
-    const PWM_BASE: u32 = 0xFE20C000;
-    #[cfg(target_pointer_width = "32")]
+    // #[cfg(target_pointer_width = "64")]
+    // const PWM_BASE: u32 = 0xFE20C000;
+    // #[cfg(target_pointer_width = "32")]
     const PWM_BASE: u32 = 0x3F20C000;
 
     const CHIP_COUNT: usize = 2;
@@ -34,6 +42,7 @@ impl RawPwmDriver {
 
         let mmap = MmapOptions::new()
             .offset(Self::PWM_BASE as u64 + chip_index as u64 * 0x800)
+            // .len(4096)
             .len(0x28)
             .map_raw(&file)?;
 
@@ -62,7 +71,7 @@ impl RawPwmDriver {
 
         let mut value: u32 = 0;
         value |= 1; // Channel enable (PWEN)
-        // value |= 1 << 1; // PWM mode (MODE)
+        // value |= 0 << 1; // PWM mode (MODE)
         value |= 1 << 7; // M/S transmission mode (MSEN)
 
         let mut register_value = unsafe { register_ptr.read_volatile() };
@@ -117,6 +126,8 @@ impl RawPwmDriver {
         let mut register_value = unsafe { register_ptr.read_volatile() };
         register_value = period; // Set the new value
         unsafe { register_ptr.write_volatile(register_value) };
+        
+        debug!("Set PWM period: pin_index={} period={}", pin_index, period);
 
         Ok(())
     }
@@ -146,6 +157,8 @@ impl RawPwmDriver {
         let mut register_value = unsafe { register_ptr.read_volatile() };
         register_value = duty; // Set the new value
         unsafe { register_ptr.write_volatile(register_value) };
+        
+        debug!("Set PWM duty: pin_index={} duty={}", pin_index, duty);
 
         Ok(())
     }
@@ -162,7 +175,7 @@ impl PwmDriver for RawPwmDriver {
         Ok(Self::PIN_COUNT)
     }
 
-    fn get_pin(&self, index: usize) -> GpioResult<Box<dyn PwmPin>> {
+    fn get_pin(&self, index: usize) -> GpioResult<Box<dyn PwmPin + '_>> {
         if index >= self.count()? {
             return Err(GpioError::InvalidArgument);
         }
@@ -194,21 +207,22 @@ impl Debug for RawPwmPin<'_> {
 }
 
 impl PwmPin for RawPwmPin<'_> {
-    // TODO Nanosecond conversion
     fn period_ns(&self) -> GpioResult<u32> {
-        self.driver.get_period(self.pin_index)
+        self.driver.get_period(self.pin_index).map(|v| v * 50)
     }
 
     fn set_period_ns(&mut self, period_ns: u32) -> GpioResult<()> {
-        self.driver.set_period(self.pin_index, period_ns)
+        let cycles = period_ns / 50;
+        self.driver.set_period(self.pin_index, cycles)
     }
 
     fn duty_ns(&self) -> GpioResult<u32> {
-        self.driver.get_duty(self.pin_index)
+        self.driver.get_duty(self.pin_index).map(|v| v * 50)
     }
 
     fn set_duty_ns(&mut self, duty_ns: u32) -> GpioResult<()> {
-        self.driver.set_duty(self.pin_index, duty_ns)
+        let cycles = duty_ns / 50;
+        self.driver.set_duty(self.pin_index, cycles)
     }
 
     fn polarity(&self) -> GpioResult<PwmPolarity> {

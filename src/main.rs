@@ -1,5 +1,6 @@
 mod gpio;
 
+use std::hint::spin_loop;
 use std::ops::Add;
 use crate::gpio::GpioDriver;
 use crate::gpio::gpiod::GpiodDriver;
@@ -11,6 +12,8 @@ use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::System;
 use time::OffsetDateTime;
+use crate::gpio::clock::{ClockDriver, ClockSource, MashMode};
+use crate::gpio::clock::raw::RawClockDriver;
 use crate::gpio::lcd::ssd1803a::driver::{GpioSSD1803ADriver, SSD1803ADriver};
 use crate::gpio::lcd::ssd1803a::driver::DoubleHeightMode::DoubleBottom;
 use crate::gpio::pwm::{PwmDriver, PwmExtension, RawPwmDriver, SysfsPwmDriver};
@@ -37,7 +40,8 @@ fn main() -> eyre::Result<()> {
     );
     info!("Architecture {}", System::cpu_arch());
 
-    let gpio = RawGpioDriver::new_gpiomem()?;
+    // let gpio = RawGpioDriver::new_gpiomem()?;
+    let gpio = RawGpioDriver::new_mem()?;
     // let gpio = GpiodDriver::new(Chip::new("/dev/gpiochip0")?);
 
     let mut pin_e = gpio.get_pin(17)?;
@@ -52,12 +56,38 @@ fn main() -> eyre::Result<()> {
     let pin_rs_out = pin_rs.as_output()?;
 
     // let pwm = SysfsPwmDriver::get_chip(0)?;
-    // let mut pin_pwm = pwm.get_pin(0)?;
-    // pin_pwm.set_period(Duration::from_secs(1))?;
-    // pin_pwm.set_duty(Duration::from_millis(500))?;
-    // pin_pwm.enable()?;
+
+    let mut pwm_clock = RawClockDriver::get_pwm()?;
+
+    pwm_clock.set_enabled(false)?;
+    sleep(Duration::from_millis(10));
+    assert!(!pwm_clock.get_busy()?);
+    pwm_clock.set_mash_mode(MashMode::None)?;
+    pwm_clock.set_source(ClockSource::PllD)?; // 1 GHz
+    pwm_clock.set_divisor(50.0)?;
+    assert_eq!(pwm_clock.divisor()?, 50.0); // 1/50 GHz = 20 MHz
+    // Delay for the clock to stabilize
+    sleep(Duration::from_millis(10));
+    pwm_clock.set_enabled(true)?;
+    sleep(Duration::from_millis(10));
+    assert!(pwm_clock.get_busy()?);
+
+    // Manually set GPIO18 to PWM0
+    let _pwm_pin = gpio.get_pin(18)?;
+    gpio.set_pin_function(18, 0b010)?; // GPIO18 ALT5: PWM0
 
     let pwm = RawPwmDriver::new_mem(0)?;
+    let mut pin_pwm = pwm.get_pin(0)?;
+    pin_pwm.disable()?;
+    pin_pwm.set_period(Duration::from_secs(1))?;
+    sleep(Duration::from_millis(10));
+    pin_pwm.set_period(Duration::from_millis(500))?;
+    sleep(Duration::from_millis(10));
+    pin_pwm.enable()?;
+
+    // loop {
+    //     spin_loop();
+    // }
 
     {
         let mut data_bus = gpio.get_pin_bus(bus_pins)?;
