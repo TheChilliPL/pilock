@@ -3,8 +3,8 @@ use std::fs::OpenOptions;
 use std::sync::atomic::AtomicU8;
 use log::debug;
 use memmap2::{MmapOptions, MmapRaw};
-use crate::gpio::clock::{ClockDriver, ClockSource, MashMode};
-use crate::gpio::{GpioError, GpioResult};
+use crate::clock::{ClockDriver, ClockSource, MashMode};
+use crate::{GpioError, GpioResult};
 
 pub struct RawClockDriver {
     mmap: MmapRaw,

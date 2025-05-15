@@ -1,5 +1,5 @@
-use crate::gpio::lcd::hd44780::driver::{CursorDirection, HD44780Driver};
-use crate::gpio::{GpioBus, GpioError, GpioOutput, GpioResult};
+use crate::lcd::hd44780::driver::{CursorDirection, HD44780Driver};
+use crate::{GpioBus, GpioError, GpioOutput, GpioResult};
 use log::trace;
 use std::thread::sleep;
 use std::time::Duration;

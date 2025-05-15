@@ -1,4 +1,4 @@
-use crate::gpio::{GpioActiveLevel, GpioBias, GpioBus, GpioBusInput, GpioBusOutput, GpioDriveMode, GpioError, GpioInput, GpioOutput, GpioPin, GpioResult};
+use crate::{GpioActiveLevel, GpioBias, GpioBus, GpioBusInput, GpioBusOutput, GpioDriveMode, GpioError, GpioInput, GpioOutput, GpioPin, GpioResult};
 use std::fmt::Debug;
 
 pub struct SoftGpioBus<'a, const N: usize> {

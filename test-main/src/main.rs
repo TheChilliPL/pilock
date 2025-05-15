@@ -1,11 +1,9 @@
-mod gpio;
-
-use crate::gpio::clock::raw::RawClockDriver;
-use crate::gpio::clock::{ClockDriver, ClockSource, MashMode};
-use crate::gpio::lcd::ssd1803a::driver::{GpioSSD1803ADriver, SSD1803ADriver};
-use crate::gpio::pwm::{PwmDriver, PwmExtension, RawPwmDriver};
-use crate::gpio::raw::RawGpioDriver;
-use crate::gpio::{GpioActiveLevel, GpioBias, GpioDriveMode, GpioDriver};
+use pilock_gpio::clock::raw::RawClockDriver;
+use pilock_gpio::clock::{ClockDriver, ClockSource, MashMode};
+use pilock_gpio::lcd::ssd1803a::driver::{GpioSSD1803ADriver, SSD1803ADriver};
+use pilock_gpio::pwm::{PwmDriver, PwmExtension, RawPwmDriver};
+use pilock_gpio::raw::RawGpioDriver;
+use pilock_gpio::{GpioActiveLevel, GpioBias, GpioDriveMode, GpioDriver};
 use dotenv::dotenv;
 use log::{debug, info};
 use std::thread::sleep;
@@ -74,7 +72,7 @@ fn main() -> eyre::Result<()> {
     pin_pwm.disable()?;
     pin_pwm.set_period(Duration::from_secs(1))?;
     sleep(Duration::from_millis(10));
-    pin_pwm.set_period(Duration::from_millis(500))?;
+    pin_pwm.set_duty(Duration::from_millis(500))?;
     sleep(Duration::from_millis(10));
     pin_pwm.enable()?;
 

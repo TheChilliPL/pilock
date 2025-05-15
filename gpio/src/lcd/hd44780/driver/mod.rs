@@ -1,6 +1,6 @@
 mod gpio;
 
-use crate::gpio::{GpioError, GpioResult};
+use crate::{GpioError, GpioResult};
 pub use gpio::*;
 use std::fmt::Debug;
 

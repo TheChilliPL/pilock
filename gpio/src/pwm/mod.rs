@@ -2,7 +2,7 @@ mod sysfs;
 mod ext;
 mod raw;
 
-use crate::gpio::{GpioError, GpioResult};
+use crate::{GpioError, GpioResult};
 use std::fmt::{Debug, Display};
 use std::str::FromStr;
 pub use sysfs::*;

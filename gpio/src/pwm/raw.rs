@@ -4,8 +4,8 @@ use std::sync::atomic::AtomicU8;
 use bitvec::vec::BitVec;
 use log::debug;
 use memmap2::{MmapOptions, MmapRaw};
-use crate::gpio::{GpioError, GpioResult};
-use crate::gpio::pwm::{PwmDriver, PwmPin, PwmPolarity};
+use crate::{GpioError, GpioResult};
+use crate::pwm::{PwmDriver, PwmPin, PwmPolarity};
 
 /// Raw PWM driver for the Raspberry Pi.
 /// 
@@ -13,7 +13,7 @@ use crate::gpio::pwm::{PwmDriver, PwmPin, PwmPolarity};
 /// 
 /// Requires the pins to be set to the correct function before using this driver manually.
 /// Assumes the clock is set to 20 MHz, which is below the maximum supported frequency for PWM. It can
-/// be done with [ClockDriver](crate::gpio::clock::ClockDriver) set to [ClockSource::PllC](crate::gpio::clock::ClockSource::PllC)
+/// be done with [ClockDriver](crate::clock::ClockDriver) set to [ClockSource::PllC](crate::clock::ClockSource::PllC)
 /// with a divisor of `50.0`.
 pub struct RawPwmDriver {
     mmap: MmapRaw,

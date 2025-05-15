@@ -1,0 +1,13 @@
+[package]
+name = "pilock_gpio"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+log.workspace = true
+gpiod = "0.3.0"
+thiserror.workspace = true
+bitvec = "1.0.1"
+memmap2 = "0.9.5"

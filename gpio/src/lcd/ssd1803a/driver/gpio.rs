@@ -1,9 +1,9 @@
 use std::thread::sleep;
 use std::time::Duration;
 use log::trace;
-use crate::gpio::{GpioBus, GpioError, GpioOutput, GpioResult};
-use crate::gpio::lcd::hd44780::driver::GpioHD44780Bus;
-use crate::gpio::lcd::ssd1803a::driver::{BiasDivider, DoubleHeightMode, InternalOscFrequency, InternalResistorRatio, SSD1803ADriver};
+use crate::{GpioBus, GpioError, GpioOutput, GpioResult};
+use crate::lcd::hd44780::driver::GpioHD44780Bus;
+use crate::lcd::ssd1803a::driver::{BiasDivider, DoubleHeightMode, InternalOscFrequency, InternalResistorRatio, SSD1803ADriver};
 
 #[derive(Debug)]
 pub struct GpioSSD1803ADriver<'a> {

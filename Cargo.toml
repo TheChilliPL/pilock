@@ -1,16 +1,19 @@
-[package]
-name = "pilock"
+[workspace]
+members = [
+    "gpio",
+    "test-main",
+    "pilock",
+]
+resolver = "2"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
+authors = [ "TheChilliPL <chilli@thechilli.dev>" ]
+license = "MIT"
 
-[dependencies]
+[workspace.dependencies]
+pilock_gpio = { path = "gpio" }
 log = "0.4.26"
-pretty_env_logger = "0.5.0"
-sysinfo = "0.34.2"
-dotenv = "0.15.0"
-gpiod = "0.3.0"
 thiserror = "2.0.12"
-bitvec = "1.0.1"
-eyre = "0.6.12"
 time = { version = "0.3.41", features = ["local-offset"] }
-memmap2 = "0.9.5"

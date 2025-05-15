@@ -2,6 +2,14 @@
 
 A smart electronic door lock built on Raspberry Pi, written in Rust, under the MIT license.
 
+The repository is a Rust workspace divided into several packages:
+- `pilock_gpio` (`./gpio`): GPIO interface for the Raspberry Pi. Home for most
+    embedded functionality. Used as a dependency in the main program.
+- `pilock_test_main` (`./test-main`): Test main program for the GPIO interface, used
+    for testing. Will be removed in the future.
+- `pilock` (`./pilock`): Main program for the PiLock project, which will be used to control the
+    lock and manage the user interface.
+
 ## Building
 
 We recommend cross-compiling PiLock on your development machine rather than building

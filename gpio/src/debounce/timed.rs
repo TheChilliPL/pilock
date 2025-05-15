@@ -2,7 +2,7 @@ use std::cell::Cell;
 use std::fmt::{Debug, Formatter};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
-use crate::gpio::{GpioInput, GpioResult};
+use crate::{GpioInput, GpioResult};
 
 pub struct TimedDebounce<'a> {
     input: &'a dyn GpioInput,

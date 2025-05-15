@@ -1,4 +1,4 @@
-use crate::gpio::{
+use crate::{
     GpioActiveLevel, GpioBias, GpioBus, GpioBusInput, GpioBusOutput, GpioDriver, GpioError,
     GpioInput, GpioOutput, GpioPin, GpioResult,
 };

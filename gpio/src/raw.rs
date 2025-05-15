@@ -1,4 +1,4 @@
-use crate::gpio::{GpioActiveLevel, GpioBias, GpioBus, GpioBusInput, GpioBusOutput, GpioDriveMode, GpioDriver, GpioError, GpioInput, GpioOutput, GpioPin, GpioResult};
+use crate::{GpioActiveLevel, GpioBias, GpioBus, GpioBusInput, GpioBusOutput, GpioDriveMode, GpioDriver, GpioError, GpioInput, GpioOutput, GpioPin, GpioResult};
 use bitvec::vec::BitVec;
 use memmap2::{MmapOptions, MmapRaw};
 use std::fmt::{Debug, Formatter};
@@ -45,7 +45,7 @@ impl RawGpioDriver {
         Self::create("/dev/mem")
     }
 
-    pub(crate) fn raw_get_pin_function(&self, pin_index: usize) -> GpioResult<u32> {
+    pub fn raw_get_pin_function(&self, pin_index: usize) -> GpioResult<u32> {
         if pin_index >= Self::PIN_COUNT {
             return Err(GpioError::InvalidArgument);
         }
@@ -61,7 +61,7 @@ impl RawGpioDriver {
         Ok(value)
     }
 
-    pub(crate) fn raw_set_pin_function(&self, pin_index: usize, function: u8) -> GpioResult<()> {
+    pub fn raw_set_pin_function(&self, pin_index: usize, function: u8) -> GpioResult<()> {
         if function > 0b111 {
             return Err(GpioError::InvalidArgument);
         }

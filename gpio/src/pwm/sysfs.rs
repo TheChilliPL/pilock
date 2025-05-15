@@ -1,5 +1,5 @@
-use crate::gpio::pwm::{PwmDriver, PwmPin, PwmPolarity};
-use crate::gpio::{GpioError, GpioResult};
+use crate::pwm::{PwmDriver, PwmPin, PwmPolarity};
+use crate::{GpioError, GpioResult};
 use std::fmt::{Debug, Formatter};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;

@@ -1,8 +1,8 @@
 mod gpio;
 
 use std::fmt::Debug;
-use crate::gpio::{GpioError, GpioResult};
-use crate::gpio::lcd::hd44780::driver::{CursorDirection, HD44780Driver};
+use crate::{GpioError, GpioResult};
+use crate::lcd::hd44780::driver::{CursorDirection, HD44780Driver};
 pub use gpio::*;
 
 pub trait SSD1803ADriver: Debug {

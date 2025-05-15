@@ -1,6 +1,6 @@
 use std::time::Duration;
-use crate::gpio::GpioResult;
-use crate::gpio::pwm::PwmPin;
+use crate::GpioResult;
+use crate::pwm::PwmPin;
 
 pub trait PwmExtension {
     fn period(&self) -> GpioResult<Duration>;

@@ -1,7 +1,7 @@
 pub mod raw;
 
 use std::fmt::Debug;
-use crate::gpio::{GpioError, GpioResult};
+use crate::{GpioError, GpioResult};
 
 pub trait ClockDriver: Debug {
     fn enabled(&self) -> GpioResult<bool>;
