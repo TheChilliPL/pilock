@@ -9,6 +9,8 @@ use log::{debug, info};
 use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::System;
+use pilock_gpio::lcd::hd44780::driver::CursorDirection;
+use pilock_gpio::rotenc::{RotEnc, RotEncRotation};
 
 fn main() -> eyre::Result<()> {
     dotenv().ok();
@@ -48,33 +50,33 @@ fn main() -> eyre::Result<()> {
 
     // let pwm = SysfsPwmDriver::get_chip(0)?;
 
-    let mut pwm_clock = RawClockDriver::get_pwm()?;
-
-    pwm_clock.set_enabled(false)?;
-    sleep(Duration::from_millis(10));
-    assert!(!pwm_clock.get_busy()?);
-    pwm_clock.set_mash_mode(MashMode::None)?;
-    pwm_clock.set_source(ClockSource::PllD)?; // 1 GHz
-    pwm_clock.set_divisor(50.0)?;
-    assert_eq!(pwm_clock.divisor()?, 50.0); // 1/50 GHz = 20 MHz
-    // Delay for the clock to stabilize
-    sleep(Duration::from_millis(10));
-    pwm_clock.set_enabled(true)?;
-    sleep(Duration::from_millis(10));
-    assert!(pwm_clock.get_busy()?);
-
-    // Manually set GPIO18 to PWM0
-    let _pwm_pin = gpio.get_pin(18)?;
-    gpio.raw_set_pin_function(18, 0b010)?; // GPIO18 ALT5: PWM0
-
-    let pwm = RawPwmDriver::new_mem(0)?;
-    let mut pin_pwm = pwm.get_pin(0)?;
-    pin_pwm.disable()?;
-    pin_pwm.set_period(Duration::from_secs(1))?;
-    sleep(Duration::from_millis(10));
-    pin_pwm.set_duty(Duration::from_millis(500))?;
-    sleep(Duration::from_millis(10));
-    pin_pwm.enable()?;
+    // let mut pwm_clock = RawClockDriver::get_pwm()?;
+    //
+    // pwm_clock.set_enabled(false)?;
+    // sleep(Duration::from_millis(10));
+    // assert!(!pwm_clock.get_busy()?);
+    // pwm_clock.set_mash_mode(MashMode::None)?;
+    // pwm_clock.set_source(ClockSource::PllD)?; // 1 GHz
+    // pwm_clock.set_divisor(50.0)?;
+    // assert_eq!(pwm_clock.divisor()?, 50.0); // 1/50 GHz = 20 MHz
+    // // Delay for the clock to stabilize
+    // sleep(Duration::from_millis(10));
+    // pwm_clock.set_enabled(true)?;
+    // sleep(Duration::from_millis(10));
+    // assert!(pwm_clock.get_busy()?);
+    //
+    // // Manually set GPIO18 to PWM0
+    // let _pwm_pin = gpio.get_pin(18)?;
+    // gpio.raw_set_pin_function(18, 0b010)?; // GPIO18 ALT5: PWM0
+    //
+    // let pwm = RawPwmDriver::new_mem(0)?;
+    // let mut pin_pwm = pwm.get_pin(0)?;
+    // pin_pwm.disable()?;
+    // pin_pwm.set_period(Duration::from_secs(1))?;
+    // sleep(Duration::from_millis(10));
+    // pin_pwm.set_duty(Duration::from_millis(500))?;
+    // sleep(Duration::from_millis(10));
+    // pin_pwm.enable()?;
 
     // loop {
     //     spin_loop();
@@ -93,156 +95,66 @@ fn main() -> eyre::Result<()> {
 
     driver.init(4)?;
 
-    let contrast: u8 = 31; // 0-63
+    let contrast: u8 = 50; //31; // 0-63
 
     driver.contrast_set(contrast)?;
     driver.icon_booster_contrast(false, true, contrast)?;
-    //
-    //     let str = "Hi PiLock 4-bit";
-    //
-    //     for c in str.chars() {
-    //         driver.send_data(c as u8)?;
-    //     }
-    //
-    //     driver.set_ddram_address(0x20)?;
-    //
-    //     let str = System::cpu_arch();
-    //
-    //     for c in str.chars() {
-    //         driver.send_data(c as u8)?
-    //     }
-    //
-    //     driver.double_height_bias_dot_shift(DoubleBottom, Default::default(), false)?;
-    //     driver.function_set_0(false, true, true, false)?;
-    //
-    //     loop {
-    //         let time = OffsetDateTime::now_local()?;
-    //         let (h, m, s) = time.to_hms();
-    //
-    //         driver.set_ddram_address(0x36)?;
-    //
-    //         let str = format!("{:02}:{:02}:{:02}", h, m, s);
-    //         for c in str.chars() {
-    //             driver.send_data(c as u8)?;
-    //         }
-    //
-    //         // Delay until the start of the next second
-    //         let next_second = time.clone()
-    //             .add(Duration::from_secs(1))
-    //             .replace_nanosecond(0)?;
-    //         sleep(Duration::try_from(next_second - time)?);
-    //     }
-    // }
 
-    // Keypad test
+    driver.cursor_shift(false, CursorDirection::Right)?;
 
-    let mut cols = [ 23, 24, 25, 12 ];
-    let mut rows = [ 5, 6, 8, 7 ];
-    cols.reverse();
-    rows.reverse();
-    let mut cols = gpio.get_pin_bus(cols)?;
-    let mut rows = gpio.get_pin_bus(rows)?;
+    let mut rotenc_a = gpio.get_pin(5)?;
+    let mut rotenc_b = gpio.get_pin(6)?;
+    let rotenc_a = rotenc_a.as_input()?;
+    let rotenc_b = rotenc_b.as_input()?;
+    let mut rotenc = RotEnc::new(&*rotenc_a, &*rotenc_b);
 
-    cols.set_active_level(GpioActiveLevel::Low)?;
-    cols.set_drive_mode(GpioDriveMode::OpenDrain)?;
-    rows.set_active_level(GpioActiveLevel::Low)?;
-    rows.set_bias(GpioBias::PullUp)?;
+    let mut rotenc_btn = gpio.get_pin(25)?;
+    rotenc_btn.set_bias(GpioBias::PullUp)?;
+    rotenc_btn.set_active_level(GpioActiveLevel::Low)?;
+    let rotenc_btn = rotenc_btn.as_input()?;
 
-    let cols = cols.as_output()?;
-    let rows = rows.as_input()?;
+    let mut num = 0i32;
 
-    let mut keypad = [[false; 4]; 4];
+    let mut changed = false;
 
-    let keypad_chars = [
-        ['1', '2', '3', 'A'],
-        ['4', '5', '6', 'B'],
-        ['7', '8', '9', 'C'],
-        ['*', '0', '#', 'D'],
-    ];
-
-    let mut input: Vec<char> = Vec::with_capacity(8);
-
-    let mut last_pressed = None;
-    let mut requires_redraw = true;
+    let mut frame = 0;
 
     loop {
-        let mut pressed = None;
+        let rotation = rotenc.read()?;
+        let (a, b) = rotenc.read_raw()?;
 
-        for col in 0..4 {
-            let nibble = 1 << (3 - col);
-            cols.write_nibble(nibble)?;
-            sleep(Duration::from_millis(10));
-            let value = rows.read_nibble()?;
-            for row in 0..4 {
-                let value = value >> (3 - row) & 1;
-                keypad[row][col] = value == 1;
-
-                if value == 1 {
-                    if pressed.is_none() {
-                        pressed = Some(keypad_chars[row][col]);
-                    } else {
-                        continue;
-                    }
+        if let Some(rot) = rotation {
+            match rot {
+                RotEncRotation::Clockwise => {
+                    num += 1;
+                }
+                RotEncRotation::CounterClockwise => {
+                    num -= 1;
                 }
             }
-            // debug!("Keypad pin {}: {:04b} (written {:04b})", pin, value, nibble);
+            changed = true;
         }
 
-        if let Some(pressed) = pressed {
-            if last_pressed != Some(pressed) {
-                last_pressed = Some(pressed);
-                debug!("Keypad pressed: {}", pressed);
-                match pressed {
-                    '*' => {
-                        input.pop();
-                        requires_redraw = true;
-                    }
-                    '#' => {
-                        if input.len() > 0 {
-                            let str = input.iter().collect::<String>();
-                            debug!("Keypad input: {}", str);
-                            input.clear();
-                            requires_redraw = true;
-                        }
-                    }
-                    _ => {
-                        if input.capacity() - input.len() > 0 {
-                            input.push(pressed);
-                            requires_redraw = true;
-                        }
-                    }
-                }
-            }
-        } else {
-            last_pressed = None;
+        if rotenc_btn.read()? {
+            num = 0;
+            changed = true;
         }
 
-        // for row in 0..4 {
-        //     driver.set_ddram_address(0x20 * row)?;
-        //     let row = row as usize;
-        //     for col in 0..4 {
-        //         if keypad[row][col] {
-        //             driver.send_data(keypad_chars[row][col] as u8)?;
-        //         } else {
-        //             driver.send_data('-' as u8)?;
-        //         }
-        //         driver.send_data(' ' as u8)?;
-        //     }
-        // }
-
-        if requires_redraw {
+        if changed && frame % 100 == 0 {
             driver.clear_display()?;
 
-            for i in 0..input.capacity() {
-                let char = input.get(i).cloned().unwrap_or('_');
-                driver.send_data(char as u8)?;
-                driver.send_data(' ' as u8)?;
+            let str = num.to_string();
+
+            for char in str.chars() {
+                driver.send_data(char as u8)?
             }
-            
-            requires_redraw = false;
+
+            changed = false;
         }
 
-        sleep(Duration::from_millis(1000 / 30));
+        sleep(Duration::from_millis(1));
+
+        frame += 1;
     }
 
     Ok(())

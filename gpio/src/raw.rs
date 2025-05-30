@@ -5,6 +5,10 @@ use std::fmt::{Debug, Formatter};
 use std::fs::OpenOptions;
 use std::sync::atomic::AtomicU8;
 
+/// Raw GPIO driver for the Raspberry Pi.
+///
+/// Uses `/dev/mem` or `/dev/gpiomem` to access GPIO registers directly.
+/// Emulates active low and drive mode with software, by switching the pin function as needed.
 pub struct RawGpioDriver {
     mmap: MmapRaw,
     used_pins: BitVec<AtomicU8>,

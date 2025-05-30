@@ -5,6 +5,7 @@ use crate::{GpioError, GpioResult};
 use crate::lcd::hd44780::driver::{CursorDirection, HD44780Driver};
 pub use gpio::*;
 
+/// The `SSD1803ADriver` trait defines the interface for SSD1803A LCD controller drivers.
 pub trait SSD1803ADriver: Debug {
     /// Initializes the SSD1803A controller with the default settings.
     fn init(&mut self, lines: u8) -> GpioResult<()>;

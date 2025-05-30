@@ -64,6 +64,7 @@ impl KeypadKey {
     }
 }
 
+/// The `GpioKeypad` struct represents a GPIO-based keypad with 4 columns and 4 rows.
 pub struct GpioKeypad<'a> {
     cols: &'a dyn GpioBusOutput<4>,
     rows: &'a dyn GpioBusInput<4>,

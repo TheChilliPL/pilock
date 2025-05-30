@@ -3,6 +3,7 @@ pub mod raw;
 use std::fmt::Debug;
 use crate::{GpioError, GpioResult};
 
+/// ClockDriver trait defines the interface for clock drivers in the GPIO subsystem.
 pub trait ClockDriver: Debug {
     fn enabled(&self) -> GpioResult<bool>;
     fn set_enabled(&mut self, enabled: bool) -> GpioResult<()>;
@@ -20,16 +21,16 @@ pub trait ClockDriver: Debug {
 #[derive(Copy, Clone, Debug)]
 pub enum MashMode {
     None,
-    /// Minimum DIVI: 2
-    /// Minimum output frequency: source / (DIVI + 1)
+    /// Minimum DIVI: 2  
+    /// Minimum output frequency: source / (DIVI + 1)  
     /// Maximum output frequency: source / DIVI
     Mash1,
-    /// Minimum DIVI: 3
-    /// Minimum output frequency: source / (DIVI + 2)
+    /// Minimum DIVI: 3  
+    /// Minimum output frequency: source / (DIVI + 2)  
     /// Maximum output frequency: source / (DIVI - 1)
     Mash2,
-    /// Minimum DIVI: 5
-    /// Minimum output frequency: source / (DIVI + 4)
+    /// Minimum DIVI: 5  
+    /// Minimum output frequency: source / (DIVI + 4)  
     /// Maximum output frequency: source / (DIVI - 3)
     Mash3,
 }

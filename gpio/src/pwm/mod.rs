@@ -9,12 +9,14 @@ pub use sysfs::*;
 pub use ext::*;
 pub use raw::*;
 
+/// Trait for PWM driver implementations.
 pub trait PwmDriver: Debug {
     fn count(&self) -> GpioResult<usize>;
 
     fn get_pin(&self, index: usize) -> GpioResult<Box<dyn PwmPin + '_>>;
 }
 
+/// Trait for PWM pins, providing methods to control PWM functionality.
 pub trait PwmPin: Debug {
     fn period_ns(&self) -> GpioResult<u32>;
     fn set_period_ns(&mut self, period_ns: u32) -> GpioResult<()>;

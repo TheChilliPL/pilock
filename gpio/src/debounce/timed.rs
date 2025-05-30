@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use crate::{GpioInput, GpioResult};
 
+/// A debounced GPIO input that uses a timer to filter out noise.
 pub struct TimedDebounce<'a> {
     input: &'a dyn GpioInput,
     state: AtomicBool,

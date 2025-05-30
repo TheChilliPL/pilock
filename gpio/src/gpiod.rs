@@ -6,6 +6,7 @@ use bitvec::vec::BitVec;
 use std::fmt::{Debug, Formatter};
 use std::sync::atomic::AtomicU8;
 
+/// GpiodDriver is a GPIO driver that uses the gpiod library to manage GPIO pins.
 pub struct GpiodDriver {
     chip: gpiod::Chip,
     used_pins: BitVec<AtomicU8>,

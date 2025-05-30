@@ -5,6 +5,7 @@ use crate::{GpioBus, GpioError, GpioOutput, GpioResult};
 use crate::lcd::hd44780::driver::GpioHD44780Bus;
 use crate::lcd::ssd1803a::driver::{BiasDivider, DoubleHeightMode, InternalOscFrequency, InternalResistorRatio, SSD1803ADriver};
 
+/// GpioSSD1803A driver for SSD1803A LCD controller using GPIO pins.
 #[derive(Debug)]
 pub struct GpioSSD1803ADriver<'a> {
     pin_reset: Option<&'a dyn GpioOutput>,

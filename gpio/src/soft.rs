@@ -1,6 +1,7 @@
 use crate::{GpioActiveLevel, GpioBias, GpioBus, GpioBusInput, GpioBusOutput, GpioDriveMode, GpioError, GpioInput, GpioOutput, GpioPin, GpioResult};
 use std::fmt::Debug;
 
+/// A software GPIO bus that allows multiple separate GPIO pins to be managed together.
 pub struct SoftGpioBus<'a, const N: usize> {
     pins: [&'a mut dyn GpioPin; N],
 }

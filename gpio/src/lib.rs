@@ -6,6 +6,7 @@ pub mod raw;
 pub mod clock;
 pub mod keypad;
 pub mod soft;
+pub mod rotenc;
 
 use std::fmt::Debug;
 use thiserror::Error;
@@ -114,15 +115,23 @@ impl GpioDriveMode {
 }
 
 pub trait GpioPin: Debug {
+    /// Sets the GPIO pin function to input, allowing reading its state.
     fn as_input(&mut self) -> GpioResult<Box<dyn GpioInput + '_>>;
+    /// Sets the GPIO pin function to output, allowing writing its state.
     fn as_output(&mut self) -> GpioResult<Box<dyn GpioOutput + '_>>;
 
+    /// Gets whether the GPIO pin supports active level.
     fn supports_active_level(&self) -> bool {
         false
     }
+    /// Gets the active level of the GPIO pin.
     fn active_level(&self) -> GpioActiveLevel {
         GpioActiveLevel::High
     }
+    /// Sets the active level of the GPIO pin.
+    ///
+    /// # Errors
+    /// - `GpioError::NotSupported` if the pin does not support active level.
     fn set_active_level(&mut self, _level: GpioActiveLevel) -> GpioResult<()> {
         Err(GpioError::NotSupported)
     }
@@ -134,12 +143,18 @@ pub trait GpioPin: Debug {
         Ok(self)
     }
 
+    /// Gets whether the GPIO pin supports bias (pull-up/pull-down resistors).
     fn supports_bias(&self) -> bool {
         false
     }
+    /// Gets the bias of the GPIO pin.
     fn bias(&self) -> GpioBias {
         GpioBias::None
     }
+    /// Sets the bias of the GPIO pin.
+    ///
+    /// # Errors
+    /// - `GpioError::NotSupported` if the pin does not support bias.
     fn set_bias(&mut self, _bias: GpioBias) -> GpioResult<()> {
         Err(GpioError::NotSupported)
     }
@@ -151,13 +166,18 @@ pub trait GpioPin: Debug {
         Ok(self)
     }
 
+    /// Gets whether the GPIO pin supports drive mode (push-pull, open-drain, open-source).
     fn supports_drive_mode(&self) -> bool {
         false
     }
+    /// Gets the drive mode of the GPIO pin.
     fn drive_mode(&self) -> GpioDriveMode {
         GpioDriveMode::PushPull
     }
-
+    /// Sets the drive mode of the GPIO pin.
+    ///
+    /// # Errors
+    /// - `GpioError::NotSupported` if the pin does not support drive mode.
     fn set_drive_mode(&mut self, _mode: GpioDriveMode) -> GpioResult<()> {
         Err(GpioError::NotSupported)
     }
@@ -172,10 +192,12 @@ pub trait GpioPin: Debug {
 }
 
 pub trait GpioInput: Debug {
+    /// Reads the state of the GPIO pin.
     fn read(&self) -> GpioResult<bool>;
 }
 
 pub trait GpioOutput: Debug {
+    /// Writes the state of the GPIO pin.
     fn write(&self, value: bool) -> GpioResult<()>;
 }
 
