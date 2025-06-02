@@ -1,19 +1,22 @@
 mod config;
 mod utils;
 mod app;
+mod notes;
 
 use std::env::var;
 use std::thread;
 use std::time::{Duration, Instant};
 use dotenv::dotenv;
 use log::{debug, info};
-use pilock_gpio::{GpioDriver};
+use pilock_gpio::{GpioActiveLevel, GpioBias, GpioDriver};
+use pilock_gpio::debounce::TimedDebounce;
 use pilock_gpio::GpioActiveLevel::Low;
 use pilock_gpio::GpioBias::PullUp;
 use pilock_gpio::GpioDriveMode::OpenDrain;
 use pilock_gpio::lcd::ssd1803a::driver::{BiasDivider, DoubleHeightMode, GpioSSD1803ADriver, SSD1803ADriver};
 use pilock_gpio::raw::RawGpioDriver;
 use pilock_gpio::keypad::{GpioKeypad, Keypad, KeypadKey};
+use pilock_gpio::rotenc::RotEnc;
 use crate::app::App;
 use crate::config::Config;
 use crate::utils::{CollectionExt, DisplayExt};
@@ -98,19 +101,32 @@ fn main() -> eyre::Result<()> {
 
     debug!("{:?} initialized.", lcd);
 
-    debug!("Initializing keypad driver...");
-    let mut keypad_col_bus = gpio.get_pin_bus(keypad_pin_col_nos)?;
-    let mut keypad_row_bus = gpio.get_pin_bus(keypad_pin_row_nos)?;
-    keypad_col_bus.set_drive_mode(OpenDrain)?;
-    keypad_col_bus.set_active_level(Low)?;
-    keypad_row_bus.set_bias(PullUp)?;
-    keypad_row_bus.set_active_level(Low)?;
-    let keypad_col_out = keypad_col_bus.as_output()?;
-    let keypad_row_in = keypad_row_bus.as_input()?;
+    // debug!("Initializing keypad driver...");
+    // let mut keypad_col_bus = gpio.get_pin_bus(keypad_pin_col_nos)?;
+    // let mut keypad_row_bus = gpio.get_pin_bus(keypad_pin_row_nos)?;
+    // keypad_col_bus.set_drive_mode(OpenDrain)?;
+    // keypad_col_bus.set_active_level(Low)?;
+    // keypad_row_bus.set_bias(PullUp)?;
+    // keypad_row_bus.set_active_level(Low)?;
+    // let keypad_col_out = keypad_col_bus.as_output()?;
+    // let keypad_row_in = keypad_row_bus.as_input()?;
+    //
+    // let mut keypad = GpioKeypad::new(&*keypad_col_out, &*keypad_row_in);
+    //
+    // debug!("{:?} initialized.", keypad);
 
-    let mut keypad = GpioKeypad::new(&*keypad_col_out, &*keypad_row_in);
+    debug!("Initializing rotary encoder...");
+    let mut rotenc_a = gpio.get_pin(5)?;
+    let mut rotenc_b = gpio.get_pin(6)?;
+    let rotenc_a = rotenc_a.as_input()?;
+    let rotenc_b = rotenc_b.as_input()?;
+    let mut rotenc = RotEnc::new(&*rotenc_a, &*rotenc_b);
 
-    debug!("{:?} initialized.", keypad);
+    let mut rotenc_btn = gpio.get_pin(25)?;
+    rotenc_btn.set_bias(GpioBias::PullUp)?;
+    rotenc_btn.set_active_level(GpioActiveLevel::Low)?;
+    let rotenc_btn = rotenc_btn.as_input()?;
+    let mut rotenc_btn = TimedDebounce::new(&*rotenc_btn);
 
     debug!("Trying to load config...");
     // let config = config::Config::try_load();
@@ -141,7 +157,9 @@ fn main() -> eyre::Result<()> {
     let mut app = App::new(
         config,
         &mut lcd,
-        &mut keypad,
+        // &mut keypad,
+        &mut rotenc,
+        &mut rotenc_btn,
     );
 
     let mut last_update = Instant::now();
@@ -151,7 +169,7 @@ fn main() -> eyre::Result<()> {
         last_update = now;
         
         // Sleep for 1/20th of a second
-        thread::sleep(Duration::from_millis(50));
+        thread::sleep(Duration::from_millis(1));
     }
 
     // Ok(())
