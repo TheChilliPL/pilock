@@ -10,6 +10,7 @@ pub enum RotEncRotation {
 /// A rotary encoder driver that reads the state of two GPIO pins to determine the direction of rotation.
 /// 
 /// Does not provide a button, so you may want to use a separate GPIO input for that.
+#[derive(Debug)]
 pub struct RotEnc<'a> {
     pub pin_a: &'a dyn GpioInput,
     pub pin_b: &'a dyn GpioInput,

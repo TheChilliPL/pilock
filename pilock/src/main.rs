@@ -3,12 +3,16 @@ mod utils;
 mod app;
 mod notes;
 
+use crate::notes::MusicalNote;
 use std::env::var;
 use std::thread;
+use std::thread::sleep;
 use std::time::{Duration, Instant};
 use dotenv::dotenv;
 use log::{debug, info};
 use pilock_gpio::{GpioActiveLevel, GpioBias, GpioDriver};
+use pilock_gpio::clock::{ClockDriver, MashMode};
+use pilock_gpio::clock::raw::RawClockDriver;
 use pilock_gpio::debounce::TimedDebounce;
 use pilock_gpio::GpioActiveLevel::Low;
 use pilock_gpio::GpioBias::PullUp;
@@ -16,7 +20,9 @@ use pilock_gpio::GpioDriveMode::OpenDrain;
 use pilock_gpio::lcd::ssd1803a::driver::{BiasDivider, DoubleHeightMode, GpioSSD1803ADriver, SSD1803ADriver};
 use pilock_gpio::raw::RawGpioDriver;
 use pilock_gpio::keypad::{GpioKeypad, Keypad, KeypadKey};
+use pilock_gpio::pwm::{PwmDriver, PwmExtension, RawPwmDriver};
 use pilock_gpio::rotenc::RotEnc;
+use pilock_music_proc_macro::note;
 use crate::app::App;
 use crate::config::Config;
 use crate::utils::{CollectionExt, DisplayExt};
@@ -128,6 +134,45 @@ fn main() -> eyre::Result<()> {
     let rotenc_btn = rotenc_btn.as_input()?;
     let mut rotenc_btn = TimedDebounce::new(&*rotenc_btn);
 
+    debug!("{:?} initialized.", rotenc);
+
+    debug!("Initializing PWM clock...");
+
+    let mut pwm_clock = RawClockDriver::get_pwm()?;
+
+    pwm_clock.set_enabled(false)?;
+    sleep(Duration::from_millis(10));
+    pwm_clock.set_mash_mode(MashMode::None)?;
+    pwm_clock.set_source(pilock_gpio::clock::ClockSource::PllC)?; // 1 GHz
+    pwm_clock.set_divisor(50.0)?; // 1/50 GHz = 20 MHz
+    sleep(Duration::from_millis(10));
+    pwm_clock.set_enabled(true)?;
+    sleep(Duration::from_millis(10));
+
+    debug!("{:?} initialized.", pwm_clock);
+
+    debug!("Initializing PWM for audio...");
+
+    // PWM 0/0 at GPIO 18
+
+    let pwm = RawPwmDriver::new_mem(0)?;
+    let mut pin_pwm = pwm.get_pin(0)?;
+    pin_pwm.disable()?;
+
+    // Manually set GPIO 18 to PWMW0 (ALT5)
+    gpio.raw_set_pin_function(18, 0b010)?;
+
+    let freq = note!("C4").as_freq_hz();
+    let mut period_ns = (1_000_000_000.0 / freq) as u32;
+    period_ns /= 4;
+    pin_pwm.set_period_ns(period_ns)?;
+    pin_pwm.set_duty_ns(period_ns / 2)?;
+    pin_pwm.enable()?;
+    sleep(Duration::from_secs(1));
+    pin_pwm.disable()?;
+
+    debug!("{:?} initialized.", pin_pwm);
+
     debug!("Trying to load config...");
     // let config = config::Config::try_load();
     let config = if let Some(config) = Config::try_load() {
@@ -148,7 +193,7 @@ fn main() -> eyre::Result<()> {
 
     info!("PiLock initialized.");
 
-    thread::sleep(Duration::from_secs(1));
+    sleep(Duration::from_secs(1));
     
     lcd.function_set_0(false, true, false, false)?;
 
@@ -160,6 +205,7 @@ fn main() -> eyre::Result<()> {
         // &mut keypad,
         &mut rotenc,
         &mut rotenc_btn,
+        &mut *pin_pwm,
     );
 
     let mut last_update = Instant::now();

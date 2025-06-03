@@ -1,37 +1,90 @@
-use crabtime::output;
 use time::Duration;
+use pilock_music_proc_macro::{music_proc_macro, note};
 
-#[crabtime::function]
-fn create_musical_note() {
-    fn note_freq(octave: usize, note_number: usize) -> f64 {
-        const BASE_FREQ: f64 = 440.0;
-        const BASE_OCTAVE: usize = 4;
-        const BASE_NOTE: usize = 9; // A4 is the 9th note in the octave (C4 is 0)
+music_proc_macro!();
 
-        let note_index = (octave - BASE_OCTAVE) * 12 + (note_number - BASE_NOTE);
-        BASE_FREQ * 2f64.powf(note_index as f64 / 12.0)
+pub type Melody = Vec<(Option<MusicalNote>, Duration)>;
+
+#[macro_export]
+macro_rules! melody {
+    ($($e:tt for $dur:literal ms),* $(,)?) => {
+        (vec![$(melody!(@note $e for $dur ms)),*] as Melody)
+    };
+    (@note pause for $dur:literal ms) => {
+        (None, ::time::Duration::milliseconds($dur))
+    };
+    (@note $note:literal for $dur:literal ms) => {
+        (Some(note!($note)), ::time::Duration::milliseconds($dur))
+    };
+}
+
+pub trait MelodyExt {
+    /// Gets the duration of the melody.
+    fn duration(&self) -> Duration;
+
+    /// Gets the note at a specific duration in the melody, or `None` for a pause.
+    ///
+    /// Returns `None` if the duration is out of bounds.
+    fn get_note_at(&self, duration: Duration) -> Option<MusicalNote>;
+}
+
+impl MelodyExt for Melody {
+    fn duration(&self) -> Duration {
+        self.iter().fold(Duration::ZERO, |acc, &(_note, dur)| acc + dur)
     }
 
-    const NOTES_IN_OCTAVE: [&'static str; 12] = [
-        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
-    ];
-
-    const OCTAVE_COUNT: usize = 9;
-
-    let mut notes = Vec::with_capacity(NOTES_IN_OCTAVE.len() * OCTAVE_COUNT);
-    for octave in 0..OCTAVE_COUNT {
-        for (i, note) in NOTES_IN_OCTAVE.iter().enumerate() {
-            let note_name = format!("{}{}", note, octave);
-            let note_ident = note_name.replace("#", "Sharp");
-            let note_freq = note_freq(octave, i);
-
-            let note_definition = crabtime::quote!(
-                {{note_ident}},
-            );
-
-            let note_to_str = crabtim
-
-            notes.push((note_name, note_ident, note_freq))
+    fn get_note_at(&self, duration: Duration) -> Option<MusicalNote> {
+        if duration < Duration::ZERO || duration > self.duration() {
+            return None; // Out of bounds
         }
+
+        let mut elapsed = Duration::ZERO;
+        for &(note, dur) in self {
+            if elapsed + dur > duration {
+                return note; // Return the note if the duration falls within this segment
+            }
+            elapsed += dur;
+        }
+        None // If no note is found for the given duration
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_notes() {
+        let note = note!("C#4");
+
+        assert_eq!(note, MusicalNote::CSharp4);
+        assert!(note.as_freq_hz() - 277.18 < 0.01); // C#4 frequency is approximately 277.18 Hz
+    }
+
+    #[test]
+    fn test_melody_macro() {
+        let melody = melody![
+            "C4" for 500 ms,
+            "D4" for 500 ms,
+            pause for 250 ms,
+            "E4" for 500 ms,
+        ];
+
+        assert_eq!(melody.len(), 4);
+        assert_eq!(melody[0], (Some(note!("C4")), Duration::milliseconds(500)));
+        assert_eq!(melody[1], (Some(note!("D4")), Duration::milliseconds(500)));
+        assert_eq!(melody[2], (None, Duration::milliseconds(250)));
+        assert_eq!(melody[3], (Some(note!("E4")), Duration::milliseconds(500)));
+
+        assert_eq!(melody.duration(), Duration::milliseconds(1750));
+
+        assert_eq!(melody.get_note_at(Duration::milliseconds(-5)), None); // Out of bounds
+        assert_eq!(melody.get_note_at(Duration::milliseconds(0)), Some(note!("C4")));
+        assert_eq!(melody.get_note_at(Duration::milliseconds(250)), Some(note!("C4")));
+        assert_eq!(melody.get_note_at(Duration::milliseconds(500)), Some(note!("D4")));
+        assert_eq!(melody.get_note_at(Duration::milliseconds(750)), Some(note!("D4")));
+        assert_eq!(melody.get_note_at(Duration::milliseconds(1000)), None); // Pause
+        assert_eq!(melody.get_note_at(Duration::milliseconds(1250)), Some(note!("E4")));
+        assert_eq!(melody.get_note_at(Duration::milliseconds(1750)), None); // Out of bounds
     }
 }

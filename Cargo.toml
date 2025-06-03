@@ -3,6 +3,7 @@ members = [
     "gpio",
     "test-main",
     "pilock",
+    "music-proc-macro",
 ]
 resolver = "2"
 
@@ -14,6 +15,7 @@ license = "MIT"
 
 [workspace.dependencies]
 pilock_gpio = { path = "gpio" }
+pilock_music_proc_macro = { path = "music-proc-macro" }
 log = "0.4.26"
 thiserror = "2.0.12"
 time = { version = "0.3.41", features = ["local-offset"] }

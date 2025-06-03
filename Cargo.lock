@@ -278,6 +278,7 @@ dependencies = [
  "eyre",
  "log",
  "pilock_gpio",
+ "pilock_music_proc_macro",
  "pretty_env_logger",
  "serde",
  "serde_json",
@@ -295,6 +296,15 @@ dependencies = [
  "log",
  "memmap2",
  "thiserror",
+]
+
+[[package]]
+name = "pilock_music_proc_macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

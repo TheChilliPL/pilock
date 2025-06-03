@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::fs::OpenOptions;
 use std::sync::atomic::AtomicU8;
 use bitvec::vec::BitVec;
-use log::debug;
+use log::{debug, trace};
 use memmap2::{MmapOptions, MmapRaw};
 use crate::{GpioError, GpioResult};
 use crate::pwm::{PwmDriver, PwmPin, PwmPolarity};
@@ -81,6 +81,24 @@ impl RawPwmDriver {
 
         Ok(())
     }
+    
+    fn get_enabled(&self, pin_index: usize) -> GpioResult<bool> {
+        if pin_index >= Self::PIN_COUNT {
+            return Err(GpioError::InvalidArgument);
+        }
+
+        let mmap = self.mmap.as_ptr() as *const u32;
+        // PWM_CTL register
+        let register_ptr = unsafe { mmap.add(0x00 / 4) };
+        let shift = pin_index * 8;
+        // PWENi bit
+        let mask: u32 = 1 << shift;
+
+        let register_value = unsafe { register_ptr.read_volatile() };
+        let enabled = (register_value & mask) != 0;
+
+        Ok(enabled)
+    }
 
     fn reset_channel(&self, pin_index: usize) -> GpioResult<()> {
         if pin_index >= Self::PIN_COUNT {
@@ -127,7 +145,7 @@ impl RawPwmDriver {
         register_value = period; // Set the new value
         unsafe { register_ptr.write_volatile(register_value) };
         
-        debug!("Set PWM period: pin_index={} period={}", pin_index, period);
+        trace!("Set PWM period: pin_index={} period={}", pin_index, period);
 
         Ok(())
     }
@@ -158,7 +176,7 @@ impl RawPwmDriver {
         register_value = duty; // Set the new value
         unsafe { register_ptr.write_volatile(register_value) };
         
-        debug!("Set PWM duty: pin_index={} duty={}", pin_index, duty);
+        trace!("Set PWM duty: pin_index={} duty={}", pin_index, duty);
 
         Ok(())
     }
@@ -234,7 +252,7 @@ impl PwmPin for RawPwmPin<'_> {
     }
 
     fn is_enabled(&self) -> GpioResult<bool> {
-        todo!()
+        self.driver.get_enabled(self.pin_index)
     }
 
     fn enable(&mut self) -> GpioResult<()> {
