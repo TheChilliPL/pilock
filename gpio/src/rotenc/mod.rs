@@ -1,9 +1,13 @@
+//! Rotary encoder driver.
+
 use std::num::NonZero;
 use crate::{GpioInput, GpioResult};
 
 /// Represents the direction of rotation for a rotary encoder.
 pub enum RotEncRotation {
+    /// Indicates that the rotary encoder was rotated clockwise.
     Clockwise,
+    /// Indicates that the rotary encoder was rotated counter-clockwise.
     CounterClockwise,
 }
 
@@ -12,7 +16,9 @@ pub enum RotEncRotation {
 /// Does not provide a button, so you may want to use a separate GPIO input for that.
 #[derive(Debug)]
 pub struct RotEnc<'a> {
+    /// The GPIO pin for the first channel of the rotary encoder.
     pub pin_a: &'a dyn GpioInput,
+    /// The GPIO pin for the second channel of the rotary encoder.
     pub pin_b: &'a dyn GpioInput,
     state: (bool, bool),
     ticks_per_rotation: u8,
@@ -23,6 +29,9 @@ pub struct RotEnc<'a> {
 }
 
 impl<'a> RotEnc<'a> {
+    /// The states of the rotary encoder in a clockwise direction.
+    /// 
+    /// The states go as follows: LL, HL, HH, HL (L - low, H - high).
     const STATES_CLOCKWISE: [(bool, bool); 4] = [
         (false, false),
         (true, false),
@@ -30,6 +39,7 @@ impl<'a> RotEnc<'a> {
         (false, true),
     ];
     
+    /// Creates a new `RotEnc` instance with the specified GPIO pins.
     pub fn new(pin_a: &'a dyn GpioInput, pin_b: &'a dyn GpioInput) -> Self {
         let mut rot_enc = RotEnc {
             pin_a, pin_b,
@@ -44,12 +54,16 @@ impl<'a> RotEnc<'a> {
         rot_enc
     }
 
+    /// Reads the raw values of the rotary encoder pins.
     pub fn read_raw(&self) -> GpioResult<(bool, bool)> {
         let a = self.pin_a.read()?;
         let b = self.pin_b.read()?;
         Ok((a, b))
     }
     
+    /// Reads the current state of the rotary encoder and determines if it has been rotated.
+    /// 
+    /// It determines it by comparing raw values to [RotEnc::STATES_CLOCKWISE].
     pub fn read(&mut self) -> GpioResult<Option<RotEncRotation>> {
         let mut tick = self.ticks.get().wrapping_add(1);
         if tick == 0 {

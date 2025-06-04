@@ -1,17 +1,21 @@
-use pilock_gpio::clock::raw::RawClockDriver;
-use pilock_gpio::clock::{ClockDriver, ClockSource, MashMode};
+#![doc(hidden)]
+
+use dotenv::dotenv;
+use log::{info};
+use pilock_gpio::clock::ClockDriver;
+use pilock_gpio::clock::ClockSource;
+use pilock_gpio::clock::MashMode;
+use pilock_gpio::lcd::hd44780::driver::CursorDirection;
 use pilock_gpio::lcd::ssd1803a::driver::{GpioSSD1803ADriver, SSD1803ADriver};
 use pilock_gpio::pwm::{PwmDriver, PwmExtension, RawPwmDriver};
 use pilock_gpio::raw::RawGpioDriver;
+use pilock_gpio::rotenc::{RotEnc, RotEncRotation};
 use pilock_gpio::{GpioActiveLevel, GpioBias, GpioDriveMode, GpioDriver};
-use dotenv::dotenv;
-use log::{debug, info};
 use std::thread::sleep;
 use std::time::Duration;
 use sysinfo::System;
-use pilock_gpio::lcd::hd44780::driver::CursorDirection;
-use pilock_gpio::rotenc::{RotEnc, RotEncRotation};
 
+#[doc(hidden)]
 fn main() -> eyre::Result<()> {
     dotenv().ok();
     pretty_env_logger::init();

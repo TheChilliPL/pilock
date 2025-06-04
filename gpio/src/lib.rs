@@ -1,3 +1,8 @@
+//! The crate contains various GPIO-related modules and traits for working with GPIO pins, buses, and drivers.
+//!
+//! Made for use in PiLock.
+#![warn(missing_docs)]
+
 pub mod gpiod;
 pub mod lcd;
 pub mod debounce;
@@ -11,16 +16,22 @@ pub mod rotenc;
 use std::fmt::Debug;
 use thiserror::Error;
 
+/// Various GPIO-related errors that can occur.
 #[derive(Debug, Error, Eq, PartialEq, Clone)]
 pub enum GpioError {
+    /// The GPIO pin is already in use.
     #[error("pin already in use")]
     AlreadyInUse,
+    /// An invalid argument was passed.
     #[error("invalid argument")]
     InvalidArgument,
+    /// The called feature is not supported with the specific driver.
     #[error("the feature is not supported on this backend")]
     NotSupported,
+    /// Some IO error got thrown.
     #[error("IO error: {0}")]
     Io(std::io::ErrorKind),
+    /// Any error that does not fit any of the above categories.
     #[error("error: {0}")]
     Other(String),
 }
@@ -31,8 +42,13 @@ impl From<std::io::Error> for GpioError {
     }
 }
 
+/// Represents a result of an operation that can fail with a [GpioError].
+/// Check the [GpioError] documentation for the possible errors.
 pub type GpioResult<T> = Result<T, GpioError>;
 
+/// A trait for a GPIO driver that provides access to GPIO pins.
+///
+/// See [raw::RawGpioDriver] for the implementation using raw GPIO memory access.
 pub trait GpioDriver: Debug {
     /// Gets the amount of GPIO pins available.
     fn count(&self) -> GpioResult<usize>;
@@ -54,7 +70,9 @@ pub trait GpioDriver: Debug {
 /// Might be software-implemented.
 #[derive(Copy, Clone, Debug, Default)]
 pub enum GpioActiveLevel {
+    /// The GPIO pin is active when the value is high (default).
     #[default] High,
+    /// The GPIO pin is active when the value is low. Might be software-implemented.
     Low,
 }
 
@@ -75,8 +93,11 @@ impl GpioActiveLevel {
 /// These should work in both input and output modes.
 #[derive(Copy, Clone, Debug, Default)]
 pub enum GpioBias {
+    /// No bias is applied to the GPIO pin (default).
     #[default] None,
+    /// Pull-up resistor is enabled on the GPIO pin.
     PullUp,
+    /// Pull-down resistor is enabled on the GPIO pin.
     PullDown,
 }
 
@@ -114,6 +135,7 @@ impl GpioDriveMode {
     }
 }
 
+/// A trait for a GPIO pin that can be used as input or output.
 pub trait GpioPin: Debug {
     /// Sets the GPIO pin function to input, allowing reading its state.
     fn as_input(&mut self) -> GpioResult<Box<dyn GpioInput + '_>>;
@@ -135,13 +157,6 @@ pub trait GpioPin: Debug {
     fn set_active_level(&mut self, _level: GpioActiveLevel) -> GpioResult<()> {
         Err(GpioError::NotSupported)
     }
-    fn with_active_level(mut self, level: GpioActiveLevel) -> GpioResult<Self>
-    where
-        Self: Sized,
-    {
-        self.set_active_level(level)?;
-        Ok(self)
-    }
 
     /// Gets whether the GPIO pin supports bias (pull-up/pull-down resistors).
     fn supports_bias(&self) -> bool {
@@ -157,13 +172,6 @@ pub trait GpioPin: Debug {
     /// - `GpioError::NotSupported` if the pin does not support bias.
     fn set_bias(&mut self, _bias: GpioBias) -> GpioResult<()> {
         Err(GpioError::NotSupported)
-    }
-    fn with_bias(mut self, bias: GpioBias) -> GpioResult<Self>
-    where
-        Self: Sized,
-    {
-        self.set_bias(bias)?;
-        Ok(self)
     }
 
     /// Gets whether the GPIO pin supports drive mode (push-pull, open-drain, open-source).
@@ -181,85 +189,70 @@ pub trait GpioPin: Debug {
     fn set_drive_mode(&mut self, _mode: GpioDriveMode) -> GpioResult<()> {
         Err(GpioError::NotSupported)
     }
-
-    fn with_drive_mode(mut self, mode: GpioDriveMode) -> GpioResult<Self>
-    where
-        Self: Sized,
-    {
-        self.set_drive_mode(mode)?;
-        Ok(self)
-    }
 }
 
+/// A trait for a GPIO pin that is being used as input.
 pub trait GpioInput: Debug {
     /// Reads the state of the GPIO pin.
     fn read(&self) -> GpioResult<bool>;
 }
 
+/// A trait for a GPIO pin that is being used as output.
 pub trait GpioOutput: Debug {
     /// Writes the state of the GPIO pin.
     fn write(&self, value: bool) -> GpioResult<()>;
 }
 
+/// A trait for a GPIO bus that can be used as input or output.
 pub trait GpioBus<const N: usize>: Debug {
+    /// Sets the GPIO bus function to input, allowing reading its state.
     fn as_input(&mut self) -> GpioResult<Box<dyn GpioBusInput<N> + '_>>;
+    /// Sets the GPIO bus function to output, allowing writing its state.
     fn as_output(&mut self) -> GpioResult<Box<dyn GpioBusOutput<N> + '_>>;
 
+    /// Gets whether the GPIO bus supports active level.
     fn supports_active_level(&self) -> bool {
         false
     }
+    /// Gets the active level of the GPIO bus.
     fn active_level(&self) -> GpioActiveLevel {
         GpioActiveLevel::High
     }
+    /// Sets the active level of the GPIO bus.
     fn set_active_level(&mut self, _level: GpioActiveLevel) -> GpioResult<()> {
         Err(GpioError::NotSupported)
     }
-    fn with_active_level(mut self, level: GpioActiveLevel) -> GpioResult<Self>
-    where
-        Self: Sized,
-    {
-        self.set_active_level(level)?;
-        Ok(self)
-    }
 
+    /// Gets whether the GPIO bus supports bias (pull-up/pull-down resistors).
     fn supports_bias(&self) -> bool {
         false
     }
+    /// Gets the bias of the GPIO bus.
     fn bias(&self) -> GpioBias {
         GpioBias::None
     }
+    /// Sets the bias of the GPIO bus.
     fn set_bias(&mut self, _bias: GpioBias) -> GpioResult<()> {
         Err(GpioError::NotSupported)
     }
-    fn with_bias(mut self, bias: GpioBias) -> GpioResult<Self>
-    where
-        Self: Sized,
-    {
-        self.set_bias(bias)?;
-        Ok(self)
-    }
 
+    /// Gets whether the GPIO bus supports drive mode (push-pull, open-drain, open-source).
     fn supports_drive_mode(&self) -> bool {
         false
     }
+    /// Gets the drive mode of the GPIO bus.
     fn drive_mode(&self) -> GpioDriveMode {
         GpioDriveMode::PushPull
     }
-
+    /// Sets the drive mode of the GPIO bus.
     fn set_drive_mode(&mut self, _mode: GpioDriveMode) -> GpioResult<()> {
         Err(GpioError::NotSupported)
     }
-
-    fn with_drive_mode(mut self, mode: GpioDriveMode) -> GpioResult<Self>
-    where
-        Self: Sized,
-    {
-        self.set_drive_mode(mode)?;
-        Ok(self)
-    }
 }
 
+/// A trait for a GPIO bus that is being used as input.
 pub trait GpioBusInput<const N: usize>: Debug {
+    /// Reads the values of the GPIO pins in the bus.
     fn read(&self) -> GpioResult<[bool; N]>;
 }
 
@@ -293,7 +286,9 @@ impl dyn GpioBusInput<4> + '_ {
     }
 }
 
+/// A trait for a GPIO bus that is being used as output.
 pub trait GpioBusOutput<const N: usize>: Debug {
+    /// Writes the values to the GPIO pins in the bus.
     fn write(&self, values: &[bool; N]) -> GpioResult<()>;
 }
 

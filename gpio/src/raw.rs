@@ -1,3 +1,5 @@
+//! Raw GPIO driver for the Raspberry Pi.
+
 use crate::{GpioActiveLevel, GpioBias, GpioBus, GpioBusInput, GpioBusOutput, GpioDriveMode, GpioDriver, GpioError, GpioInput, GpioOutput, GpioPin, GpioResult};
 use bitvec::vec::BitVec;
 use memmap2::{MmapOptions, MmapRaw};
@@ -9,6 +11,8 @@ use std::sync::atomic::AtomicU8;
 ///
 /// Uses `/dev/mem` or `/dev/gpiomem` to access GPIO registers directly.
 /// Emulates active low and drive mode with software, by switching the pin function as needed.
+/// 
+/// Implemented based on the [BCM2711 ARM Peripherals documentation](https://datasheets.raspberrypi.com/bcm2711/bcm2711-peripherals.pdf).
 pub struct RawGpioDriver {
     mmap: MmapRaw,
     used_pins: BitVec<AtomicU8>,
@@ -19,12 +23,14 @@ impl RawGpioDriver {
     // #[cfg(target_pointer_width = "64")]
     // const GPIO_BASE: u32 = 0xFE200000;
     // #[cfg(target_pointer_width = "32")]
-    const GPIO_BASE: u32 = 0x3F200000;
+    /// Base address for the GPIO registers.
+    pub const GPIO_BASE: u32 = 0x3F200000;
     // const GPIO_BASE: u32 = 0x7E200000;
     // const GPIO_BASE: u32 = 0x20200000;
 
-    const PIN_COUNT: usize = 58;
-
+    /// Number of GPIO pins available on the Raspberry Pi.
+    pub const PIN_COUNT: usize = 58;
+    
     fn create(path: &str) -> GpioResult<Self> {
         let file = OpenOptions::new()
             .read(true)
@@ -41,14 +47,23 @@ impl RawGpioDriver {
             used_pins: BitVec::repeat(false, Self::PIN_COUNT),
         })
     }
+    
+    /// Creates a new RawGpioDriver using `/dev/gpiomem`.
     pub fn new_gpiomem() -> GpioResult<Self> {
         Self::create("/dev/gpiomem")
     }
-
+    /// Creates a new RawGpioDriver using `/dev/mem`. 
     pub fn new_mem() -> GpioResult<Self> {
         Self::create("/dev/mem")
     }
 
+    /// Gets raw pin function number from the GPFSELn register.
+    /// 
+    /// Returns a value between 0 and 7, where:
+    /// * 0 = Input
+    /// * 1 = Output
+    /// and 2-7 are various alternate functions, depending on the pin
+    /// (see 5.3 Alternative Function Assignments, BCM2711 Peripherals, page 77).
     pub fn raw_get_pin_function(&self, pin_index: usize) -> GpioResult<u32> {
         if pin_index >= Self::PIN_COUNT {
             return Err(GpioError::InvalidArgument);
@@ -65,6 +80,13 @@ impl RawGpioDriver {
         Ok(value)
     }
 
+    /// Sets raw pin function number to the GPFSELn register.
+    ///
+    /// Accepts a value between 0 and 7, where:
+    /// * 0 = Input
+    /// * 1 = Output
+    /// and 2-7 are various alternate functions, depending on the pin
+    /// (see 5.3 Alternative Function Assignments, BCM2711 Peripherals, page 77).
     pub fn raw_set_pin_function(&self, pin_index: usize, function: u8) -> GpioResult<()> {
         if function > 0b111 {
             return Err(GpioError::InvalidArgument);
@@ -89,6 +111,7 @@ impl RawGpioDriver {
         Ok(())
     }
 
+    /// Sets the output level of a pin to high or low, by writing to the GPSETn or GPCLRn registers, respectively.
     pub(crate) fn raw_set_pin_output(&self, pin_index: usize, high: bool) -> GpioResult<()> {
         if pin_index >= Self::PIN_COUNT {
             return Err(GpioError::InvalidArgument);
@@ -106,6 +129,7 @@ impl RawGpioDriver {
         Ok(())
     }
 
+    /// Gets the current level of a pin by reading the GPLEVn register.
     pub(crate) fn raw_get_pin_level(&self, pin_index: usize) -> GpioResult<bool> {
         if pin_index >= Self::PIN_COUNT {
             return Err(GpioError::InvalidArgument);
@@ -122,6 +146,7 @@ impl RawGpioDriver {
         Ok(level != 0)
     }
 
+    /// Drives a pin to a specific state based on the active level and drive mode.
     pub(crate) fn drive_pin(&self, pin_index: usize, high: bool, mode: GpioDriveMode) -> GpioResult<()> {
         let output = mode.get_state(high);
 
@@ -138,6 +163,7 @@ impl RawGpioDriver {
         Ok(())
     }
 
+    /// Sets the bias for a pin by writing to the GPIO_PUP_PDN_CNTRL_REGn register.
     pub(crate) fn raw_set_bias(&self, pin_index: usize, bias: GpioBias) -> GpioResult<()> {
         if pin_index >= Self::PIN_COUNT {
             return Err(GpioError::InvalidArgument);
@@ -162,6 +188,7 @@ impl RawGpioDriver {
         Ok(())
     }
 
+    /// Gets the bias for a pin by reading the GPIO_PUP_PDN_CNTRL_REGn register.
     pub(crate) fn raw_get_bias(&self, pin_index: usize) -> GpioResult<GpioBias> {
         if pin_index >= Self::PIN_COUNT {
             return Err(GpioError::InvalidArgument);
@@ -183,6 +210,7 @@ impl RawGpioDriver {
         Ok(bias)
     }
 
+    /// Resets a pin to its default state: input, no bias, and low output.
     pub(crate) fn raw_reset(&self, pin_index: usize) -> GpioResult<()> {
         self.raw_set_pin_function(pin_index, 0)?;
         self.raw_set_bias(pin_index, GpioBias::None)?;

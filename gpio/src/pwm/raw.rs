@@ -15,6 +15,11 @@ use crate::pwm::{PwmDriver, PwmPin, PwmPolarity};
 /// Assumes the clock is set to 20 MHz, which is below the maximum supported frequency for PWM. It can
 /// be done with [ClockDriver](crate::clock::ClockDriver) set to [ClockSource::PllC](crate::clock::ClockSource::PllC)
 /// with a divisor of `50.0`.
+/// 
+/// Also requires the specific pin to be set to the PWM function, which can be done by
+/// manually invoking the [crate::raw::RawGpioDriver::raw_set_pin_function] function.
+/// 
+/// For details on the registers, see [RawPwmPin] documentation.
 pub struct RawPwmDriver {
     mmap: MmapRaw,
     chip_index: u8,
@@ -25,10 +30,13 @@ impl RawPwmDriver {
     // #[cfg(target_pointer_width = "64")]
     // const PWM_BASE: u32 = 0xFE20C000;
     // #[cfg(target_pointer_width = "32")]
-    const PWM_BASE: u32 = 0x3F20C000;
+    /// The base address for the PWM registers in the Raspberry Pi memory map.
+    pub const PWM_BASE: u32 = 0x3F20C000;
 
-    const CHIP_COUNT: usize = 2;
-    const PIN_COUNT: usize = 2;
+    /// The number of PWM chips available in this driver.
+    pub const CHIP_COUNT: usize = 2;
+    /// The number of PWM pins available in each chip.
+    pub const PIN_COUNT: usize = 2;
 
     fn create(path: &str, chip_index: usize) -> GpioResult<Self> {
         if chip_index >= Self::CHIP_COUNT {
@@ -53,10 +61,11 @@ impl RawPwmDriver {
         })
     }
 
+    /// Creates a new `RawPwmDriver` instance using `/dev/mem` for the specified chip index.
     pub fn new_mem(chip_index: usize) -> GpioResult<Self> {
         Self::create("/dev/mem", chip_index)
     }
-
+    
     fn init_channel(&self, pin_index: usize) -> GpioResult<()> {
         if pin_index >= Self::PIN_COUNT {
             return Err(GpioError::InvalidArgument);
@@ -213,6 +222,22 @@ impl PwmDriver for RawPwmDriver {
     }
 }
 
+/// Represents a raw PWM pin.
+/// 
+/// This pin can be used to control PWM functionality on a Raspberry Pi.
+/// 
+/// The PWM is turned on by setting the `PWEN` bit in the `PWM_CTL` register.
+/// Additionally, `MODE` bit should be set to `0` (PWM),
+/// `USEF` bit should be set to `0` (FIFO disabled),
+/// `MSEN` bit should be set to `1` (M/S transmission).
+/// This driver takes care of setting these bits.
+/// 
+/// Then, the period is set by writing to the `PWM_RNGi` register,
+/// and the duty cycle is set by writing to the `PWM_DATi` register.
+/// 
+/// Notice the period and duty cycle are set in cycles, not nanoseconds.
+/// Each cycle is 50 nanoseconds, according to the clock we need to manually
+/// set up before using this driver (see [RawPwmDriver] documentation).
 pub struct RawPwmPin<'a> {
     driver: &'a RawPwmDriver,
     pin_index: usize,

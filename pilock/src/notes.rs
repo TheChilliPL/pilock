@@ -1,10 +1,38 @@
+//! Home for the [MusicalNote] type and related functionality.
+
 use time::Duration;
 use pilock_music_proc_macro::{music_proc_macro, note};
 
 music_proc_macro!();
 
+/// Type alias representing a melody.
+///
+/// It's a [Vec] of tuples, where each tuple contains:
+/// - An optional [MusicalNote] (the note being played, or `None` for a pause).
+/// - A [time::Duration] representing how long the note or pause lasts.
+///
+/// It can be easily created using the [crate::melody] macro.
 pub type Melody = Vec<(Option<MusicalNote>, Duration)>;
 
+/// Makes a melody using a DSL-style macro.
+///
+/// # Example
+///
+/// ```rs
+/// # use pilock_music::melody;
+/// # fn main() {
+/// let my_melody = melody![
+///     "C4" for 500 ms,
+///     pause for 250 ms,
+///     "C#4" for 300 ms,
+/// ];
+/// # }
+/// ```
+///
+/// The example above creates a melody with three segments:
+/// - the C4 note playing for 500 ms
+/// - a pause for 250 ms
+/// - the C#4 note playing for 300 ms
 #[macro_export]
 macro_rules! melody {
     ($($e:tt for $dur:literal ms),* $(,)?) => {
@@ -18,6 +46,7 @@ macro_rules! melody {
     };
 }
 
+/// Extension trait for the [Melody] type, providing additional functionality.
 pub trait MelodyExt {
     /// Gets the duration of the melody.
     fn duration(&self) -> Duration;

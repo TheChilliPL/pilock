@@ -1,3 +1,6 @@
+//! GpiodDriver implementation for managing GPIO pins using the gpiod library.
+//!
+//! **⚠️ Not used in the final project, but kept for reference.**
 use crate::{
     GpioActiveLevel, GpioBias, GpioBus, GpioBusInput, GpioBusOutput, GpioDriver, GpioError,
     GpioInput, GpioOutput, GpioPin, GpioResult,

@@ -7,6 +7,7 @@ pub struct SoftGpioBus<'a, const N: usize> {
 }
 
 impl <'a, const N: usize> SoftGpioBus<'a, N> {
+    /// Creates a new `SoftGpioBus` with the provided pins.
     pub fn new(pins: [&'a mut dyn GpioPin; N]) -> Self {
         Self { pins }
     }
@@ -85,11 +86,13 @@ impl <const N: usize> GpioBus<N> for SoftGpioBus<'_, N> {
     }
 }
 
+/// A software GPIO bus input that allows reading multiple GPIO pins as a single input.
 pub struct SoftGpioBusInput<'a, const N: usize> {
     pins: [&'a mut dyn GpioInput; N],
 }
 
 impl <'a, const N: usize> SoftGpioBusInput<'a, N> {
+    /// Creates a new `SoftGpioBusInput` with the provided pins.
     pub fn new(pins: [&'a mut dyn GpioInput; N]) -> Self {
         Self { pins }
     }
@@ -111,11 +114,13 @@ impl <const N: usize> GpioBusInput<N> for SoftGpioBusInput<'_, N> {
     }
 }
 
+/// A software GPIO bus output that allows writing to multiple GPIO pins as a single output.
 pub struct SoftGpioBusOutput<'a, const N: usize> {
     pins: [&'a mut dyn GpioOutput; N],
 }
 
 impl <'a, const N: usize> SoftGpioBusOutput<'a, N> {
+    /// Creates a new `SoftGpioBusOutput` with the provided pins.
     pub fn new(pins: [&'a mut dyn GpioOutput; N]) -> Self {
         Self { pins }
     }

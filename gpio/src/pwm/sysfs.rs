@@ -1,3 +1,7 @@
+//! Sysfs-based PWM driver implementation.
+//!
+//! **⚠️ Not used in the final project, but kept for reference.**
+
 use crate::pwm::{PwmDriver, PwmPin, PwmPolarity};
 use crate::{GpioError, GpioResult};
 use std::fmt::{Debug, Formatter};
@@ -5,11 +9,13 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use log::warn;
 
+/// Sysfs-based PWM driver implementation.
 pub struct SysfsPwmDriver {
     base_path: PathBuf,
 }
 
 impl SysfsPwmDriver {
+    /// Counts the number of PWM chips available in the system.
     pub fn count_chips() -> GpioResult<usize> {
         let path = Path::new("/sys/class/pwm");
         let mut count = 0;
@@ -24,6 +30,7 @@ impl SysfsPwmDriver {
         Ok(count)
     }
 
+    /// Gets a PWM chip by its index.
     pub fn get_chip(index: usize) -> GpioResult<Self> {
         let path = Path::new("/sys/class/pwm");
         let chip_path = path.join(format!("pwmchip{}", index));
@@ -67,6 +74,7 @@ impl PwmDriver for SysfsPwmDriver {
     }
 }
 
+/// Sysfs-based PWM pin implementation.
 pub struct SysfsPwmPin {
     base_path: PathBuf,
 }

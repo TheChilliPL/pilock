@@ -1,3 +1,103 @@
+//! # PiLock main application
+//! This is the main application crate for PiLock, a Raspberry Pi-based electronic door lock made for
+//! Lodz University of Technology's Embedded Systems course.
+//!
+//! The entirety (100%) of the project was made by 247617 Patryk Anuszczyk.
+//!
+//! This project is written in Rust, with the documentation written in Rustdoc format.
+//!
+//! # Features
+//!
+//! - **GPIO** --- provides access to GPIO pins by writing to the GPIO registers
+//!   via `/dev/gpiomem` or `/dev/mem` with a specific offset. The implementation
+//!   and documentation can be found at [pilock_gpio::raw::RawGpioDriver].
+//! - **Debouncing** --- debounces input GPIO pins using a timed debounce, wrapping
+//!   any other GPIO input implementation. The implementation and documentation
+//!   can be found at [pilock_gpio::debounce::TimedDebounce].
+//! - **PWM** --- provides access to PWM pins by writing to the PWM registers.
+//!   The implementation and documentation can be found at [pilock_gpio::pwm::RawPwmDriver].
+//! - **SSD1803A LCD** --- provides access to the SSD1803A LCD driver, mostly
+//!   compatible with the HD44780 LCD driver. The implementation and documentation
+//!   can be found at [pilock_gpio::lcd::ssd1803a::driver::GpioSSD1803ADriver].
+//! - **Buzzer** --- the buzzer is controlled using a PWM pin. The melodies are made
+//!   using the [MusicalNote] enum and the [melody!] macro **in the main project**.
+//! - **Rotary Encoder** --- allows to use a rotary encoder to control the project.
+//!   It requires two GPIO pins for the encoder, and requires 2 pulses to correctly
+//!   detect the rotation, as it works with the specific encoder used. The implementation
+//!   and documentation can be found at [pilock_gpio::rotenc::RotEnc].
+//!
+//! As you can see, all GPIO-related functionality is implemented in the
+//! [pilock_gpio] crate. Everything is documented there. You can find everything
+//! you need by clicking on all the links in the documentation, but notice that
+//! clicking on any type, method, etc. provided by a library (time-related for example),
+//! even by the standard library, will take you to the documentation of that
+//! crate instead of the documentation of PiLock.
+//!
+//! # Building
+//!
+//! To build the project, you need to have Rust installed. The easiest way to cross-compile
+//! the project for the Raspberry Pi is to use the `cross` tool.
+//!
+//! To build the project, run:
+//! ```bash
+//! cross build --target=aarch64-unknown-linux-gnu
+//! ```
+//! and then copy the resulting binary from `target/aarch64-unknown-linux-gnu/debug/pilock`
+//! to the Raspberry Pi using `scp` or any other method.
+//!
+//! Ensure the binary has the executable permission so that it can be run.
+//!
+//! # Running
+//!
+//! To run PiLock after transferring the binary, simply do
+//! ```bash
+//! sudo ./pilock
+//! ```
+//!
+//! The `sudo` is required due to the need for raw memory access for PWM and the clock.
+//! The GPIO driver itself could work without root permissions through `/dev/gpiomem` if the
+//! project were modified.
+//!
+//! # Configuration
+//!
+//! ## Environment Variables
+//!
+//! The project uses environment variables to configure the GPIO pins and other settings.
+//!
+//! The following environment variables are used:
+//! - `RUST_LOG` --- sets the log level for the application. Set to `DEBUG` to see most useful info.
+//! - `PILOCK_LCD_PIN_E`, `PILOCK_LCD_PIN_RW`, `PILOCK_LCD_PIN_RS` --- control pins for the display.
+//! - `PILOCK_LCD_PINS_DATA` --- data pins for the display, in 4-bit mode, comma-separated (D4,D5,D6,D7).
+//!
+//! ## Configuration File
+//!
+//! Upon first run, PiLock will create a configuration file in the current directory named `pilock.json`.
+//!
+//! This file contains the following fields:
+//! - `password` --- the password for the lock, an array of digits, each of which is a string.
+//! - `unlock_seconds` --- the number of seconds to keep the lock unlocked after entering the password.
+//! - `contrast` --- the contrast of the LCD, a value between 0 and 63.
+//!
+//! # User Guide
+//!
+//! Upon starting the application, and after waiting for the initialization sequence
+//! to end, the lock will initialize to the locked mode.
+//!
+//! The lock can be unlocked by entering the correct password using the rotary encoder.
+//!
+//! Rotating the encoder will change the last visible digit, and pressing the button
+//! will confirm the digit and move to the next one. After inputting all digits,
+//! the lock will check if the password is correct.
+//!
+//! If the password is correct, the lock will unlock for the configured number of seconds,
+//! while playing a happy melody with the buzzer.
+//!
+//! If the password is incorrect, the lock will remain locked and play a sad melody.
+//!
+//! As a bonus, one can input the secret `0915` code to play Megalovania from Undertale ;)
+//! This is meant to show off the musical capabilities of the buzzer.
+#![deny(missing_docs)]
+
 mod config;
 mod utils;
 mod app;
@@ -27,6 +127,7 @@ use crate::app::App;
 use crate::config::Config;
 use crate::utils::{CollectionExt, DisplayExt};
 
+/// Parses a pin bus string (comma-separated) into an array of 4 pin numbers.
 fn parse_pin_bus(pin_str: &str) -> eyre::Result<[usize; 4]> {
     pin_str
         .split([',', ' ', ';'])
@@ -38,6 +139,8 @@ fn parse_pin_bus(pin_str: &str) -> eyre::Result<[usize; 4]> {
         .map_err(|_| eyre::eyre!("Invalid number of data pins"))
 }
 
+/// The main function of the PiLock application. Initializes all the drivers, configures the LCD,
+/// and then enters the main loop in which [App::update] is called repeatedly.
 fn main() -> eyre::Result<()> {
     // Initialize environment and logger
     dotenv()?;
