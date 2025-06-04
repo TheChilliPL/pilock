@@ -1,19 +1,46 @@
+//! Raw clock manager driver.
+
 use std::fmt::{Debug, Formatter};
 use std::fs::OpenOptions;
-use std::sync::atomic::AtomicU8;
-use log::debug;
 use memmap2::{MmapOptions, MmapRaw};
 use crate::clock::{ClockDriver, ClockSource, MashMode};
 use crate::{GpioError, GpioResult};
 
+/// Raw clock manager driver.
+/// 
+/// The official documentation for the clock manager is quite limited, but some information was found
+/// in [G. J. van Loo, “BCM2835 Audio & PWM clocks,” Feb. 2013](<https://www.scribd.com/doc/127599939/BCM2835-Audio-clocks>).
+/// This documentation provides some more details of the clock manager in a similar processor of the
+/// same family, and most of the information is still applicable to the BCM2711.
+/// 
+/// Each of the clocks has a `CM_CTL` register and a `CM_DIV` register. The first one is used to control the clock:
+/// enable or disable it, set the source and mash mode. The second one is used to set the divisor as
+/// a pair of values: 12 bits for the integer part (DIVI) and 12 bits for the fractional part (DIVF).
+/// The clock should be disabled before changing anything to avoid lock-ups and glitches. Setting any
+/// of these registers requires a password to be written, which is `0x5A` in the highest byte.
+/// 
+/// # General-purpose clocks
+/// 
+/// The official BCM2711 documentation mentions 3 general-purpose clocks — GP0, GP1, and GP2, at offsets
+/// `0x70`, `0x78`, and `0x80` respectively. These offsets are relative to the base address of the clock manager,
+/// which is `0x3F101000` in our case.
+/// 
+/// # PCM and PWM clocks
+/// 
+/// Additionally, the aforementioned BCM2835 audio & PWM clocks documentation mentions two crucial clocks
+/// for our purposes: PCM clock (offset `0x98`) and PWM clock (offset `0xA0`).
+/// 
+/// For each clock, the `CM_CTL` register is at offset `0x00` and the `CM_DIV` register is at offset `0x04`.
 pub struct RawClockDriver {
     mmap: MmapRaw,
     offset: u32,
 }
 
 impl RawClockDriver {
-    const CLOCK_BASE: u32 = 0x3F101000;
+    /// The base address of the clock manager in the BCM2711.
+    pub const CLOCK_BASE: u32 = 0x3F101000;
 
+    /// Creates a new [RawClockDriver] instance with the specified offset from the clock base address.
     pub fn with_offset(offset: u32) -> GpioResult<Self> {
         let file = OpenOptions::new()
             .read(true)
@@ -31,28 +58,41 @@ impl RawClockDriver {
         })
     }
 
+    /// Creates a new [RawClockDriver] instance for the general-purpose clock 0.
     pub fn get_gp0() -> GpioResult<Self> {
         Self::with_offset(0x70)
     }
-
+    
+    /// Creates a new [RawClockDriver] instance for the general-purpose clock 1.
     pub fn get_gp1() -> GpioResult<Self> {
         Self::with_offset(0x78)
     }
 
+    /// Creates a new [RawClockDriver] instance for the general-purpose clock 2.
     pub fn get_gp2() -> GpioResult<Self> {
         Self::with_offset(0x80)
     }
 
+    /// Creates a new [RawClockDriver] instance for the PCM clock.
+    /// 
+    /// This clock is not mentioned in the official BCM2711 documentation. See [RawClockDriver] documentation for more details.
     pub fn get_pcm() -> GpioResult<Self> {
         Self::with_offset(0x98)
     }
 
+    /// Creates a new [RawClockDriver] instance for the PWM clock.
+    /// 
+    /// This clock is not mentioned in the official BCM2711 documentation. See [RawClockDriver] documentation for more details.
     pub fn get_pwm() -> GpioResult<Self> {
         let mut pwm = Self::with_offset(0xA0)?;
         pwm.set_enabled(false)?;
         Ok(pwm)
     }
 
+    /// Converts a divisor value (as a floating-point number) to a pair of integers representing
+    /// the integer part (DIVI) and the fractional part (DIVF) for the clock manager registers.
+    /// 
+    /// It fails with [GpioError::InvalidArgument] if the divisor is invalid (e.g. 0).
     pub fn divisor_to_divi_divf(divisor: f32) -> GpioResult<(u16, u16)> {
         let int_part = divisor as u16;
         let frac_part = (divisor.fract() * 1024.0) as u16;
@@ -70,6 +110,10 @@ impl RawClockDriver {
         Ok((int_part, frac_part))
     }
 
+    /// Converts a pair of integers representing the integer part (DIVI) and the fractional part (DIVF)
+    /// to a floating-point divisor value.
+    /// 
+    /// It fails when DIVI or DIVF are out of bounds (DIVI must be in range [1, 4095] and DIVF must be in range [0, 4095]).
     pub fn divi_divf_to_divisor(divi: u16, divf: u16) -> GpioResult<f32> {
         if divi == 0 || divi > 0xFFF || divf > 0xFFF {
             return Err(GpioError::InvalidArgument);
@@ -79,6 +123,7 @@ impl RawClockDriver {
         Ok(divisor)
     }
 
+    /// Returns the current busy state of the clock driver.
     pub fn get_busy(&self) -> GpioResult<bool> {
         let mmap = self.mmap.as_ptr() as *const u32;
         // CM_CTL register
@@ -98,6 +143,7 @@ impl Debug for RawClockDriver {
 }
 
 impl ClockDriver for RawClockDriver {
+    /// Checks whether the clock is currently enabled, by reading the `ENAB` bit of the `CM_CTL` register.
     fn enabled(&self) -> GpioResult<bool> {
         let mmap = self.mmap.as_ptr() as *const u32;
         // CM_CTL register
@@ -109,6 +155,7 @@ impl ClockDriver for RawClockDriver {
         Ok(value != 0)
     }
 
+    /// Sets the enabled state of the clock by modifying the `ENAB` bit of the `CM_CTL` register.
     fn set_enabled(&mut self, enabled: bool) -> GpioResult<()> {
         let mmap = self.mmap.as_mut_ptr() as *mut u32;
         // CM_CTL register
@@ -127,6 +174,7 @@ impl ClockDriver for RawClockDriver {
         Ok(())
     }
 
+    /// Gets the current mash mode of the clock by reading the `MASH` bits of the `CM_CTL` register.
     fn mash_mode(&self) -> GpioResult<MashMode> {
         let mmap = self.mmap.as_ptr() as *const u32;
         // CM_CTL register
@@ -138,6 +186,7 @@ impl ClockDriver for RawClockDriver {
         MashMode::from_index(value as u8)
     }
 
+    /// Sets the mash mode of the clock by modifying the `MASH` bits of the `CM_CTL` register.
     fn set_mash_mode(&mut self, mode: MashMode) -> GpioResult<()> {
         let mmap = self.mmap.as_mut_ptr() as *mut u32;
         // CM_CTL register
@@ -154,6 +203,7 @@ impl ClockDriver for RawClockDriver {
         Ok(())
     }
 
+    /// Gets the current clock source by reading the `SRC` bits of the `CM_CTL` register.
     fn source(&self) -> GpioResult<ClockSource> {
         let mmap = self.mmap.as_ptr() as *const u32;
         // CM_CTL register
@@ -165,6 +215,7 @@ impl ClockDriver for RawClockDriver {
         ClockSource::from_index(value)
     }
 
+    /// Sets the clock source by modifying the `SRC` bits of the `CM_CTL` register.
     fn set_source(&mut self, source: ClockSource) -> GpioResult<()> {
         let mmap = self.mmap.as_mut_ptr() as *mut u32;
         // CM_CTL register
@@ -181,6 +232,7 @@ impl ClockDriver for RawClockDriver {
         Ok(())
     }
 
+    /// Gets the current divisor value by reading the `CM_DIV` register and converting it to a floating-point number.
     fn divisor(&self) -> GpioResult<f32> {
         let mmap = self.mmap.as_ptr() as *const u32;
         // CM_DIV register
@@ -193,6 +245,7 @@ impl ClockDriver for RawClockDriver {
         Ok(divisor)
     }
 
+    /// Sets the divisor value by modifying the `CM_DIV` register with the provided floating-point number.
     fn set_divisor(&mut self, divisor: f32) -> GpioResult<()> {
         let mmap = self.mmap.as_mut_ptr() as *mut u32;
         // CM_DIV register

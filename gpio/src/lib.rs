@@ -1,7 +1,7 @@
 //! The crate contains various GPIO-related modules and traits for working with GPIO pins, buses, and drivers.
 //!
 //! Made for use in PiLock.
-#![warn(missing_docs)]
+#![deny(missing_docs)]
 
 pub mod gpiod;
 pub mod lcd;

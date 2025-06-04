@@ -6,6 +6,10 @@ use crate::lcd::hd44780::driver::GpioHD44780Bus;
 use crate::lcd::ssd1803a::driver::{BiasDivider, DoubleHeightMode, InternalOscFrequency, InternalResistorRatio, SSD1803ADriver};
 
 /// GpioSSD1803A driver for SSD1803A LCD controller using GPIO pins.
+/// 
+/// The E pin is pulsed for 1 us and then the display gets 1 ms to process the command, which should be more than enough for every command.
+/// It made the code simpler and more reliable, as the timing is not critical for the SSD1803A controller, and in this case we wait the same
+/// duration for every command.
 #[derive(Debug)]
 pub struct GpioSSD1803ADriver<'a> {
     pin_reset: Option<&'a dyn GpioOutput>,
@@ -23,6 +27,17 @@ pub struct GpioSSD1803ADriver<'a> {
 }
 
 impl<'a> GpioSSD1803ADriver<'a> {
+    /// Creates a new GpioSSD1803ADriver instance for SSD1803A LCD controller, using 4-bit data bus.
+    ///
+    /// # Parameters
+    ///
+    /// - `pin_reset`: Optional reset pin, used to reset the display, as recommended by the SSD1803A datasheet.
+    ///   The display might not initialize properly without it. The reset pin **must be set to active low**.
+    /// - `pin_e`: Enable output pin.
+    /// - `pin_rw`: Optional read/write output pin. If not provided, the driver will only support write operations
+    ///   (R/W pin of the display must be connected to GND, signifying write mode).
+    /// - `pin_rs`: Register select output pin.
+    /// - `data_bus`: The data bus used for communication with the SSD1803A controller.
     pub fn new_4bit(
         pin_reset: Option<&'a dyn GpioOutput>,
         pin_e: &'a dyn GpioOutput,
@@ -45,6 +60,17 @@ impl<'a> GpioSSD1803ADriver<'a> {
         }
     }
 
+    /// Creates a new GpioSSD1803ADriver instance for SSD1803A LCD controller, using 8-bit data bus.
+    ///
+    /// # Parameters
+    ///
+    /// - `pin_reset`: Optional reset pin, used to reset the display, as recommended by the SSD1803A datasheet.
+    ///   The display might not initialize properly without it. The reset pin **must be set to active low**.
+    /// - `pin_e`: Enable output pin.
+    /// - `pin_rw`: Optional read/write output pin. If not provided, the driver will only support write operations
+    ///   (R/W pin of the display must be connected to GND, signifying write mode).
+    /// - `pin_rs`: Register select output pin.
+    /// - `data_bus`: The data bus used for communication with the SSD1803A controller.
     pub fn new_8bit(
         pin_reset: Option<&'a dyn GpioOutput>,
         pin_e: &'a dyn GpioOutput,
@@ -183,6 +209,26 @@ impl<'a> GpioSSD1803ADriver<'a> {
 }
 
 impl SSD1803ADriver for GpioSSD1803ADriver<'_> {
+    /// Initializes the SSD1803A display with the specified number of lines.
+    /// 
+    /// First, it pulses the reset pin if provided, which is recommended by the SSD1803A datasheet.
+    ///
+    /// It starts by doing a synchronization sequence. It sends `0011`(`1000`) bit three times
+    /// to ensure that the display is set to 8-bit mode, no matter what the current mode was.
+    /// If 4-bit, then sends `0010` to set it to 4-bit mode.
+    ///
+    /// Then, it commences with the recommended DOGM204-A initialization sequence:
+    /// - sets line number with the extended function set command,
+    /// - sets appropriate¹ entry mode for the display to be oriented properly,
+    /// - sets the bias divider to default,
+    /// - sets the internal oscillator frequency to default,
+    /// - turns on the divider circuit and sets appropriate¹ internal resistor ratio,
+    /// - turns the booster on and sets the contrast to default,
+    /// - finishes setting the line number with the standard function set command,
+    /// - turns the display on,
+    /// - clears the display.
+    ///
+    /// After this intricate sequence, the display should be fully ready for use.
     fn init(&mut self, lines: u8) -> GpioResult<()> {
         const DEFAULT_CONTRAST: u8 = 0b11010;
 
@@ -191,6 +237,14 @@ impl SSD1803ADriver for GpioSSD1803ADriver<'_> {
         }
 
         self.lines = lines;
+        
+        // Pulse reset pin if provided
+        if let Some(pin_reset) = self.pin_reset {
+            pin_reset.write(true)?;
+            sleep(Duration::from_millis(10));
+            pin_reset.write(false)?;
+            sleep(Duration::from_millis(10));
+        }
 
         // Synchronize
         match self.data_bus {
@@ -323,6 +377,10 @@ impl SSD1803ADriver for GpioSSD1803ADriver<'_> {
         self.send_command(command, None, None)
     }
 
+    /// Sends the specific command by setting RS to 0, the data pins to the command value,
+    /// and pulsing the E pin.
+    /// 
+    /// If the IS or RE state needs to be changed, it will call the appropriate function set commands first.
     fn send_command(&mut self, data: u8, is: Option<bool>, re: Option<bool>) -> GpioResult<()> {
         let needs_is_set = is.is_some_and(|is| is != self.is_state);
 
@@ -359,14 +417,20 @@ impl SSD1803ADriver for GpioSSD1803ADriver<'_> {
         Ok(())
     }
 
+    /// Sends the specific data by setting RS to 1, the data pins to the data value,
+    /// and pulsing the E pin.
     fn send_data(&mut self, data: u8) -> GpioResult<()> {
         self.send(data, true)
     }
 
+    /// Reads a command from the display by setting RS to 0, the R/W pin to read,
+    /// and pulsing the E pin. It reads the data bus *during* the E pin pulse.
     fn read_command(&mut self) -> GpioResult<u8> {
         self.read(false)
     }
 
+    /// Reads data from the display by setting RS to 1, the R/W pin to read,
+    /// and pulsing the E pin. It reads the data bus *during* the E pin pulse.
     fn read_data(&mut self) -> GpioResult<u8> {
         self.read(true)
     }

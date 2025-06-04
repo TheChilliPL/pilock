@@ -16,6 +16,7 @@ pub struct GpiodDriver {
 }
 
 impl GpiodDriver {
+    /// Creates a new GpiodDriver instance with the specified gpiod chip.
     pub fn new(chip: gpiod::Chip) -> Self {
         let n = chip.num_lines() as usize;
         let bits = BitVec::repeat(false, n);

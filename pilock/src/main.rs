@@ -1,37 +1,38 @@
 //! # PiLock main application
 //! This is the main application crate for PiLock, a Raspberry Pi-based electronic door lock made for
-//! Lodz University of Technology's Embedded Systems course.
+//! Łódź University of Technology's Embedded Systems course.
 //!
 //! The entirety (100%) of the project was made by 247617 Patryk Anuszczyk.
 //!
 //! This project is written in Rust, with the documentation written in Rustdoc format.
+//! The documentation is written in English for consistency with common Rust practices,
+//! particularly since technical resources, including the Rust standard library documentation,
+//! and all the datasheets used in the project, are overwhelmingly in English.
 //!
 //! # Features
 //!
 //! - **GPIO** --- provides access to GPIO pins by writing to the GPIO registers
 //!   via `/dev/gpiomem` or `/dev/mem` with a specific offset. The implementation
-//!   and documentation can be found at [pilock_gpio::raw::RawGpioDriver].
+//!   and documentation can be found at [RawGpioDriver].
 //! - **Debouncing** --- debounces input GPIO pins using a timed debounce, wrapping
 //!   any other GPIO input implementation. The implementation and documentation
-//!   can be found at [pilock_gpio::debounce::TimedDebounce].
+//!   can be found at [TimedDebounce].
 //! - **PWM** --- provides access to PWM pins by writing to the PWM registers.
-//!   The implementation and documentation can be found at [pilock_gpio::pwm::RawPwmDriver].
+//!   The implementation and documentation can be found at [RawPwmDriver].
 //! - **SSD1803A LCD** --- provides access to the SSD1803A LCD driver, mostly
 //!   compatible with the HD44780 LCD driver. The implementation and documentation
-//!   can be found at [pilock_gpio::lcd::ssd1803a::driver::GpioSSD1803ADriver].
+//!   can be found at [GpioSSD1803ADriver].
 //! - **Buzzer** --- the buzzer is controlled using a PWM pin. The melodies are made
 //!   using the [MusicalNote] enum and the [melody!] macro **in the main project**.
 //! - **Rotary Encoder** --- allows to use a rotary encoder to control the project.
 //!   It requires two GPIO pins for the encoder, and requires 2 pulses to correctly
 //!   detect the rotation, as it works with the specific encoder used. The implementation
-//!   and documentation can be found at [pilock_gpio::rotenc::RotEnc].
+//!   and documentation can be found at [RotEnc].
 //!
 //! As you can see, all GPIO-related functionality is implemented in the
 //! [pilock_gpio] crate. Everything is documented there. You can find everything
-//! you need by clicking on all the links in the documentation, but notice that
-//! clicking on any type, method, etc. provided by a library (time-related for example),
-//! even by the standard library, will take you to the documentation of that
-//! crate instead of the documentation of PiLock.
+//! you need by clicking on symbols from external crates (e.g., `time`, `log`, `std`) will
+//! redirect to their own documentation.
 //!
 //! # Building
 //!
@@ -55,8 +56,7 @@
 //! ```
 //!
 //! The `sudo` is required due to the need for raw memory access for PWM and the clock.
-//! The GPIO driver itself could work without root permissions through `/dev/gpiomem` if the
-//! project were modified.
+//! If modified to use only `/dev/gpiomem`, root access may not be required.
 //!
 //! # Configuration
 //!
@@ -67,7 +67,13 @@
 //! The following environment variables are used:
 //! - `RUST_LOG` --- sets the log level for the application. Set to `DEBUG` to see most useful info.
 //! - `PILOCK_LCD_PIN_E`, `PILOCK_LCD_PIN_RW`, `PILOCK_LCD_PIN_RS` --- control pins for the display.
+//! - `PILOCK_LCD_PIN_RESET` --- reset pin for the display, optional.
 //! - `PILOCK_LCD_PINS_DATA` --- data pins for the display, in 4-bit mode, comma-separated (D4,D5,D6,D7).
+//! - `PILOCK_ROTENC_PIN_A`, `PILOCK_ROTENC_PIN_B` --- pins for the rotary encoder.
+//! - `PILOCK_ROTENC_PIN_BTN` --- pin for the rotary encoder button.
+//! - `PILOCK_FORCED_UNLOCK_PIN` --- pin for the forced unlock button.
+//!
+//! Buzzer must be plugged in to GPIO 18, the default PWM0/0 pin.
 //!
 //! ## Configuration File
 //!
@@ -96,6 +102,34 @@
 //!
 //! As a bonus, one can input the secret `0915` code to play Megalovania from Undertale ;)
 //! This is meant to show off the musical capabilities of the buzzer.
+//!
+//! While locked, the user can also press the forced unlock button, which will unlock the lock
+//! immediately. It may be used from the other side of the door, so that the user can leave the room.
+//!
+//! # FMEA/FMECA Analysis
+//!
+//! | Risk                                   | Probability (0–1) | Severity (1–10)   | Autodetection (1–10)                                 | Mitigation (1–10)                                           | Product (0–1000) |
+//! |----------------------------------------|-------------------|-------------------|------------------------------------------------------|-------------------------------------------------------------|------------------|
+//! | Invalid or missing config              | 0.6               | 7                 | 10 — the app will detect that when trying to load it | 10 — easy — we will generate the default configuration file | 420              |
+//! | No GPIO access (e.g. permission issue) | 0.2               | 10                | 10 — the system should throw an IO error             | 10 — easy — the program will shut down when starting        | 200              |
+//! | Broken encoder/buttons                 | 0.3               | 8                 | 2 — the app will not respond to input                | 1 — hard — we can't really do anything                      | 4.8              |
+//! | Broken LCD                             | 0.1               | 8                 | 2 — the app will not display anything                | 1 — hard — we can't really do anything                      | 1.2              |
+//! | Broken buzzer/PWM                      | 0.2               | 1 — not necessary | 1 — the app will not beep                            | 1 — hard — we can't really do anything                      | 0.4              |
+//!
+//! I'm not sure if that's exactly how FMEA/FMECA is supposed to be done, as I have never done that before, but I tried my best.
+//!
+//! # Datasheets and references
+//!
+//! - Raspberry Pi SoC documentation
+//!   - Raspberry Pi Ltd, “Raspberry Pi BCM2711 ARM Peripherals,” 4, Jan. 2022. Accessed: Apr. 18, 2025. \[Online]. Available: <https://datasheets.raspberrypi.com/bcm2711/bcm2711-peripherals.pdf>
+//!   - G. J. van Loo, “BCM2835 Audio & PWM clocks,” Feb. 2013, \[Online]. Available: <https://www.scribd.com/doc/127599939/BCM2835-Audio-clocks>
+//! - DOGM204-A display with SSD1803A controller, compatible with HD44780
+//!   - Display Visions Industrial Solutions, “DOGM204-A 4x20 INCL. CONTROLLER SSD1803A for 4-/8 Bit, SPI, I²C,” Mar. 2022. \[Online]. Available: <https://www.lcd-module.com/fileadmin/eng/pdf/doma/dogm204e.pdf>
+//!   - Solomon Systech Limited, “SSD1803A LCD Segment / Common Mono Driver with Controller,” May 2011. \[Online]. Available: <https://www.lcd-module.de/fileadmin/eng/pdf/zubehoer/ssd1803a_2_0.pdf>
+//!   - Hitachi, “HD44780U (LCD-II), (Dot Matrix Liquid Crystal Display Controller/Driver),” rev. 0.0, 1998. \[Online]. Available: <https://cdn.sparkfun.com/assets/9/5/f/7/b/HD44780.pdf>
+//! - RIC11 rotary encoder
+//!   - Same Sky Devices, “RIC11 Mechanical Incremental Encoder,” Sep. 2024. Accessed: May 30, 2025. \[Online]. Available: <https://www.mouser.pl/datasheet/2/1628/ric11-3511010.pdf>
+//!   
 #![deny(missing_docs)]
 
 mod config;
@@ -110,6 +144,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 use dotenv::dotenv;
 use log::{debug, info};
+use serde_json::error::Category::Data;
 use pilock_gpio::{GpioActiveLevel, GpioBias, GpioDriver};
 use pilock_gpio::clock::{ClockDriver, MashMode};
 use pilock_gpio::clock::raw::RawClockDriver;
@@ -149,23 +184,35 @@ fn main() -> eyre::Result<()> {
     info!("PiLock starting...");
 
     // Get pin numbers from env
+    let lcd_reset_pin_no: usize = var("PILOCK_LCD_PIN_RESET").unwrap_or_else(|_| "0".to_string()).parse()?;
     let lcd_e_pin_no: usize = var("PILOCK_LCD_PIN_E")?.parse()?;
     let lcd_rw_pin_no: usize = var("PILOCK_LCD_PIN_RW")?.parse()?;
     let lcd_rs_pin_no: usize = var("PILOCK_LCD_PIN_RS")?.parse()?;
     let lcd_data_pin_nos: [usize; 4] = parse_pin_bus(&var("PILOCK_LCD_PINS_DATA")?)?;
 
-    let keypad_pin_col_nos: [usize; 4] = parse_pin_bus(&var("PILOCK_KEYPAD_PINS_COLS")?)?;
-    let keypad_pin_row_nos: [usize; 4] = parse_pin_bus(&var("PILOCK_KEYPAD_PINS_ROWS")?)?;
+    // let keypad_pin_col_nos: [usize; 4] = parse_pin_bus(&var("PILOCK_KEYPAD_PINS_COLS")?)?;
+    // let keypad_pin_row_nos: [usize; 4] = parse_pin_bus(&var("PILOCK_KEYPAD_PINS_ROWS")?)?;
+
+    let rotenc_a_pin_no: usize = var("PILOCK_ROTENC_PIN_A")?.parse()?;
+    let rotenc_b_pin_no: usize = var("PILOCK_ROTENC_PIN_B")?.parse()?;
+    let rotenc_btn_pin_no: usize = var("PILOCK_ROTENC_PIN_BTN")?.parse()?;
+    // let buzzer_pin_no: usize = var("PILOCK_BUZZER_PIN")?.parse()?;
+    let forced_unlock_pin_no: usize = var("PILOCK_FORCED_UNLOCK_PIN")?.parse()?;
 
     info!("LCD @ E: {}, RW: {}, RS: {}, Data: {:?}",
         lcd_e_pin_no, lcd_rw_pin_no, lcd_rs_pin_no, lcd_data_pin_nos);
-    info!("Keypad @ Cols: {:?}, Rows: {:?}", keypad_pin_col_nos, keypad_pin_row_nos);
+    // info!("Keypad @ Cols: {:?}, Rows: {:?}", keypad_pin_col_nos, keypad_pin_row_nos);
 
     debug!("Initializing GPIO driver...");
     let gpio = RawGpioDriver::new_gpiomem()?;
     debug!("{:?} initialized.", gpio);
 
     debug!("Initializing LCD driver...");
+    let mut lcd_reset_pin = if lcd_reset_pin_no == 0 { None } else { Some(gpio.get_pin(lcd_reset_pin_no)?) };
+    if let Some(ref mut pin) = lcd_reset_pin {
+        pin.set_active_level(Low)?;
+    }
+    let lcd_reset_out = lcd_reset_pin.as_mut().map(|pin| pin.as_output()).transpose()?;
     let mut lcd_e_pin = gpio.get_pin(lcd_e_pin_no)?;
     let lcd_e_out = lcd_e_pin.as_output()?;
     let mut lcd_rw_pin = gpio.get_pin(lcd_rw_pin_no)?;
@@ -174,7 +221,7 @@ fn main() -> eyre::Result<()> {
     let lcd_rs_out = lcd_rs_pin.as_output()?;
     let mut lcd_data_bus = gpio.get_pin_bus(lcd_data_pin_nos)?;
     let mut lcd = GpioSSD1803ADriver::new_4bit(
-        None,
+        lcd_reset_out.as_ref().map(|pin| &**pin),
         &*lcd_e_out,
         Some(&*lcd_rw_out),
         &*lcd_rs_out,
@@ -225,13 +272,13 @@ fn main() -> eyre::Result<()> {
     // debug!("{:?} initialized.", keypad);
 
     debug!("Initializing rotary encoder...");
-    let mut rotenc_a = gpio.get_pin(5)?;
-    let mut rotenc_b = gpio.get_pin(6)?;
+    let mut rotenc_a = gpio.get_pin(rotenc_a_pin_no)?;
+    let mut rotenc_b = gpio.get_pin(rotenc_b_pin_no)?;
     let rotenc_a = rotenc_a.as_input()?;
     let rotenc_b = rotenc_b.as_input()?;
     let mut rotenc = RotEnc::new(&*rotenc_a, &*rotenc_b);
 
-    let mut rotenc_btn = gpio.get_pin(25)?;
+    let mut rotenc_btn = gpio.get_pin(rotenc_btn_pin_no)?;
     rotenc_btn.set_bias(GpioBias::PullUp)?;
     rotenc_btn.set_active_level(GpioActiveLevel::Low)?;
     let rotenc_btn = rotenc_btn.as_input()?;
@@ -276,6 +323,12 @@ fn main() -> eyre::Result<()> {
 
     debug!("{:?} initialized.", pin_pwm);
 
+    let mut forced_unlock_pin = gpio.get_pin(forced_unlock_pin_no)?;
+    forced_unlock_pin.set_bias(GpioBias::PullUp)?;
+    forced_unlock_pin.set_active_level(GpioActiveLevel::Low)?;
+    let forced_unlock_pin = forced_unlock_pin.as_input()?;
+    let mut forced_unlock_pin = TimedDebounce::new(&*forced_unlock_pin);
+
     debug!("Trying to load config...");
     // let config = config::Config::try_load();
     let config = if let Some(config) = Config::try_load() {
@@ -309,6 +362,7 @@ fn main() -> eyre::Result<()> {
         &mut rotenc,
         &mut rotenc_btn,
         &mut *pin_pwm,
+        &mut forced_unlock_pin,
     );
 
     let mut last_update = Instant::now();

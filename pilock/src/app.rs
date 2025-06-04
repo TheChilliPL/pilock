@@ -3,7 +3,7 @@
 use crate::notes::MusicalNote;
 use pilock_music_proc_macro::note;
 use std::time::{Instant};
-use log::{info, warn};
+use log::{debug, info, warn};
 use time::Duration;
 use pilock_gpio::{GpioInput, GpioResult};
 use pilock_gpio::keypad::{Keypad, KeypadKey};
@@ -32,6 +32,8 @@ pub struct App<'a> {
     ok_btn: &'a mut dyn GpioInput,
     /// Whether the app is in easy access mode (not requiring a password).
     easy_access: bool,
+    /// The pin used to force unlock the lock.
+    forced_unlock_pin: &'a mut dyn GpioInput,
 
     prev_ok_state: bool,
     audio_state: Option<(Melody, Duration)>,
@@ -46,6 +48,7 @@ impl <'a> App<'a> {
         encoder: &'a mut RotEnc<'a>,
         ok_btn: &'a mut dyn GpioInput,
         audio_pwm: &'a mut dyn PwmPin,
+        forced_unlock_pin: &'a mut dyn GpioInput,
     ) -> App<'a> {
         App {
             config,
@@ -58,10 +61,11 @@ impl <'a> App<'a> {
             prev_ok_state: false,
             audio_pwm,
             audio_state: None,
+            forced_unlock_pin,
         }
     }
 
-    /// Updates the app state based on the last update time ([last_update]), GPIO inputs, etc.
+    /// Updates the app state based on the last update time (`last_update`), GPIO inputs, etc.
     /// If needed, refreshes the display.
     pub fn update(&mut self, last_update: Instant) -> GpioResult<()> {
         // let key = self.keypad.read()?.try_get_single().ok().copied();
@@ -82,11 +86,15 @@ impl <'a> App<'a> {
             warn!("Failed to update audio: {}", e);
         }
 
+        let forced_unlock = self.forced_unlock_pin.read()?;
+
         match self.state {
             AppState::Starting => {
                 self.state = if self.easy_access {
+                    info!("Starting in easy access mode.");
                     AppState::LockedInEasyAccess
                 } else {
+                    info!("Starting in locked mode.");
                     AppState::Locked {
                         input: Vec::new(),
                     }
@@ -94,18 +102,30 @@ impl <'a> App<'a> {
                 self.state.draw(self.lcd)?;
             }
             AppState::LockedInEasyAccess if !self.easy_access => {
+                warn!("Was in easy access mode, despite it being disabled. Fixing.");
                 self.state = AppState::Locked {
                     input: Vec::new(),
                 };
                 self.state.draw(self.lcd)?;
             }
             AppState::Locked { .. } if self.easy_access => {
+                warn!("Was in locked mode, despite easy access being enabled. Fixing.");
                 self.state = AppState::LockedInEasyAccess;
                 self.state.draw(self.lcd)?;
             }
             AppState::LockedInEasyAccess => {
+                if forced_unlock {
+                    info!("Unlocked with forced unlock pin.");
+                    self.state = AppState::Unlocked {
+                        remaining: Duration::seconds(self.config.unlock_seconds.get() as i64),
+                    };
+                    self.start_unlock_melody();
+                    self.state.draw(self.lcd)?;
+                    return Ok(());
+                }
                 // if key == Some(KeypadKey::KeyHash) {
                 if ok_state == 2 {
+                    info!("Unlocked with easy access.");
                     self.state = AppState::Unlocked {
                         remaining: Duration::seconds(self.config.unlock_seconds.get() as i64),
                     };
@@ -122,6 +142,15 @@ impl <'a> App<'a> {
                 // }
             }
             AppState::Locked { ref mut input } => {
+                if forced_unlock {
+                    info!("Unlocked with forced unlock pin.");
+                    self.state = AppState::Unlocked {
+                        remaining: Duration::seconds(self.config.unlock_seconds.get() as i64),
+                    };
+                    self.start_unlock_melody();
+                    self.state.draw(self.lcd)?;
+                    return Ok(());
+                }
                 // if let Some(key) = key {
                 //     match key {
                 //         KeypadKey::KeyAsterisk => {
@@ -171,15 +200,18 @@ impl <'a> App<'a> {
                             if input.len() >= self.config.password.len() {
                                 let input_pin = input.iter().collect::<String>();
                                 if input_pin == self.config.password.iter().collect::<String>() {
+                                    info!("Unlocked with correct pin.");
                                     self.state = AppState::Unlocked {
                                         remaining: Duration::seconds(self.config.unlock_seconds.get() as i64),
                                     };
                                     self.start_unlock_melody();
                                 } else {
+                                    warn!("Incorrect pin entered: {}", input_pin);
                                     self.state = AppState::Locked {
                                         input: Vec::new(),
                                     };
                                     if input_pin == "0915" {
+                                        info!("Megalovania easter-egg activated!");
                                         self.start_megalovania();
                                     } else {
                                         self.start_fail_melody();
@@ -199,6 +231,7 @@ impl <'a> App<'a> {
                 let now_sec = remaining.whole_seconds();
                 
                 if remaining.is_negative() {
+                    info!("Door locked due to unlock timeout.");
                     self.state = if self.easy_access {
                         AppState::LockedInEasyAccess
                     } else {
@@ -225,7 +258,7 @@ impl <'a> App<'a> {
             warn!("Audio is already playing, overwriting audio state.");
         }
         self.audio_state = Some((melody, Duration::ZERO));
-        info!("Starting melody.");
+        debug!("Starting melody.");
     }
     
     /// Starts playing the melody that plays upon unlocking the lock.
@@ -922,7 +955,7 @@ impl <'a> App<'a> {
             if *elapsed >= melody.duration() {
                 self.audio_pwm.disable()?;
                 self.audio_state = None;
-                info!("Audio playback finished.");
+                debug!("Audio playback finished.");
                 return Ok(());
             }
 

@@ -1,3 +1,5 @@
+//! Software-implemented GPIO bus.
+
 use crate::{GpioActiveLevel, GpioBias, GpioBus, GpioBusInput, GpioBusOutput, GpioDriveMode, GpioError, GpioInput, GpioOutput, GpioPin, GpioResult};
 use std::fmt::Debug;
 

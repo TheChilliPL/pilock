@@ -9,10 +9,12 @@ pub struct TimedDebounce<'a> {
     input: &'a dyn GpioInput,
     state: AtomicBool,
     changed_since: Cell<Option<Instant>>,
+    /// The duration for which the state must remain unchanged to be considered stable.
     pub debounce_time: Duration,
 }
 
 impl <'a> TimedDebounce<'a> {
+    /// Creates a new [TimedDebounce] instance with the specified input.
     pub fn new(input: &'a dyn GpioInput) -> Self {
         Self {
             input,
@@ -22,6 +24,7 @@ impl <'a> TimedDebounce<'a> {
         }
     }
     
+    /// Sets the debounce time for the input and returns itself.
     pub fn with_debounce_time(mut self, debounce_time: Duration) -> Self {
         self.debounce_time = debounce_time;
         self

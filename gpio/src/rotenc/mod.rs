@@ -32,7 +32,7 @@ impl<'a> RotEnc<'a> {
     /// The states of the rotary encoder in a clockwise direction.
     /// 
     /// The states go as follows: LL, HL, HH, HL (L - low, H - high).
-    const STATES_CLOCKWISE: [(bool, bool); 4] = [
+    pub const STATES_CLOCKWISE: [(bool, bool); 4] = [
         (false, false),
         (true, false),
         (true, true),

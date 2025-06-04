@@ -1,4 +1,4 @@
-//# PWM functionality.
+//! PWM functionality.
 
 mod sysfs;
 mod ext;
